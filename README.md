@@ -17,6 +17,13 @@ tools, respectively.
 You can find the documentation for spexxy at <https://spexxy.readthedocs.io/>.
 
 
+### Build status
+
+| master  | develop |
+| --- | --- |
+| ![master build status](https://api.travis-ci.com/thusser/spexxy.svg?branch=master) | ![develop build status](https://api.travis-ci.com/thusser/spexxy.svg?branch=develop) |
+
+
 ### References
 
 *spexxy* requires Python 3.6 or later and depends on a couple of amazing external packages:
