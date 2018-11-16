@@ -1,0 +1,36 @@
+#!/usr/bin/env python3
+
+import yaml
+import argparse
+import logging
+
+from spexxy.application import Application
+from spexxy.utils.log import setup_log
+
+
+def main():
+    # init logging
+    logging.getLogger().setLevel(logging.DEBUG)
+    setup_log('spexxy.main', 'spexxy.log', mode='w')
+
+    # init parser
+    parser = argparse.ArgumentParser(description='spexxy spectrum fitting tool')
+    parser.add_argument('config', help='spexxy configuration file', type=argparse.FileType('r'))
+    parser.add_argument('filenames', help='filenames of spectra to fit', type=str, nargs='+')
+    parser.add_argument('--mp', type=int, help='run fit in parallel in the given number of processes')
+    parser.add_argument('-o', '--output', help='CSV to write results into', type=str, default='spexxy.csv')
+    parser.add_argument('-r', '--resume', help='resume previous fit', action='store_true')
+
+    # parse args
+    args = parser.parse_args()
+
+    # parse config
+    config = yaml.load(args.config)
+
+    # create app and run it
+    app = Application(config, args.filenames, ncpus=args.mp, output=args.output, resume=args.resume)
+    app.run()
+
+
+if __name__ == '__main__':
+    main()
