@@ -12,6 +12,11 @@ that wrap the framework using a YAML configuration file and provide some additio
 tools, respectively.
 
 
+### Documentation
+
+You can find the documentation for spexxy at <https://spexxy.readthedocs.io/>.
+
+
 ### References
 
 *spexxy* requires Python 3.6 or later and depends on a couple of amazing external packages:
