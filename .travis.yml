@@ -9,3 +9,8 @@ install:
 # command to run tests
 script:
   - pytest
+# limit builds to master and develop branches
+branches:
+  only:
+  - master
+  - stable
