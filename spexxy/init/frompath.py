@@ -2,6 +2,7 @@ import os
 
 from .init import Init
 from ..data import FitsSpectrum
+from ..component import Component
 
 
 class InitFromPath(Init):
@@ -20,7 +21,7 @@ class InitFromPath(Init):
         Init.__init__(self, *args, **kwargs)
         self._path = path
 
-    def __call__(self, cmp: 'Component', filename: str):
+    def __call__(self, cmp: Component, filename: str):
         """Initializes parameters of the given component with values from another file.
 
         Args:

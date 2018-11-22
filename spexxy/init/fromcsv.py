@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 
 from .init import Init
+from ..component import Component
 
 
 class InitFromCsv(Init):
@@ -30,7 +31,7 @@ class InitFromCsv(Init):
         self.log.info('Reading CSV file with initial values from %s...', filename)
         self._csv = pd.read_csv(filename, index_col=filename_col)
 
-    def __call__(self, cmp: 'Component', filename: str):
+    def __call__(self, cmp: Component, filename: str):
         """Initializes parameters of the given component with values from the CSV given in the configuration.
 
         Args:

@@ -5,6 +5,7 @@ from astropy.time import Time
 import astropy.units as u
 
 from .init import Init
+from ..component import Component
 
 
 class InitFromVhelio(Init):
@@ -32,7 +33,7 @@ class InitFromVhelio(Init):
         self._obs = EarthLocation.of_site(obs)
         self._kind = kind
 
-    def __call__(self, cmp: 'Component', filename: str):
+    def __call__(self, cmp: Component, filename: str):
         """Initializes the radial velocity parameter of a given component to the (negative) heliocentric correction.
 
         Args:
