@@ -13,4 +13,5 @@ Welcome to spexxy's documentation!
    :maxdepth: 3
 
    quickstart
+   tools/index
    reference/index
