@@ -19,12 +19,12 @@ a directory::
     optional arguments:
       -h, --help            show this help message and exit
       -o OUTPUT, --output OUTPUT
-                            Output database file
+                            Output database file (default: grid.csv)
       -p PATTERN, --pattern PATTERN
-                            Filename pattern
+                            Filename pattern (default: **/*.fits)
       --from-filename FROM_FILENAME
                             Parse parameters from the filenames with the given
-                            regular expression
+                            regular expression (default: None)
 
 For example, the name of a spectrum in the `PHOENIX library <http://phoenix.astro.physik.uni-goettingen.de/>`_
 looks something like this::
@@ -39,7 +39,7 @@ another term appears like this::
 Since all parameters are encoded in the filename, a grid can easily be defining a regular expression that extracts
 these parameters from the filenames. Using the spexxytools this can be done as::
 
-    spexxytools grid create --from-filename lte(?P<Teff>\d{5})-(?P<logg>\d\.\d\d)(?P<FeH>[+-]\d\.\d)(\.Alpha=(?P<Alpha>[+-]\d\.\d\d))?\.PHOENIX .
+    spexxytools grid create --from-filename "lte(?P<Teff>\d{5})-(?P<logg>\d\.\d\d)(?P<FeH>[+-]\d\.\d)(\.Alpha=(?P<Alpha>[+-]\d\.\d\d))?\.PHOENIX" .
 
 Note that the groups are named (via ?P<name>) and that those names will be used as names for the parameters.
 
@@ -49,3 +49,19 @@ This spexxytools call will produce an output CSV file that might look like this:
     PHOENIX-ACES-AGSS-COND-2011/Z+0.5.Alpha=+0.50/lte02300-0.00+0.5.Alpha=+0.50.PHOENIX-ACES-AGSS-COND-2011-HiRes.fits,2300.0,0.0,0.5,0.5
     PHOENIX-ACES-AGSS-COND-2011/Z+0.5.Alpha=+0.50/lte02300-0.50+0.5.Alpha=+0.50.PHOENIX-ACES-AGSS-COND-2011-HiRes.fits,2300.0,0.5,0.5,0.5
     [...]
+
+
+fillholes
+---------
+The :doc:`Interpolators <interpolators>` in *spexxy* work best on grids with a convex shape without any holes.
+With `spexxytools grid create` there is a tool for filling holes in a grid using a cubic spline interpolator::
+
+    usage: spexxytools grid fillholes [-h] grid output
+
+    positional arguments:
+      grid        Name of grid CSV
+      output      Directory to store interpolated spectra in
+
+    optional arguments:
+      -h, --help  show this help message and exit
+
