@@ -40,7 +40,7 @@ class GridAxis(object):
             value: Value to find neighbour for.
             distance: Distance in which to find neighbour
                 >0:  Find larger neighbours, i.e. 0 next larger value, 1 the one after that, etc
-                <=0:  Find smaller neighbouars, i.e. 0 next smaller value (or value itself), -1 the before that, etc
+                <=0:  Find smaller neighbours, i.e. 0 next smaller value (or value itself), -1 the before that, etc
 
         Returns:
             Value on grid in the given distance to the given value. If given value is on grid, distance is
