@@ -14,7 +14,8 @@ def main():
     logging.captureWarnings(True)
 
     # init parser
-    parser = argparse.ArgumentParser(description='spexxy command line interface')
+    parser = argparse.ArgumentParser(description='spexxy command line interface',
+                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     subparsers = parser.add_subparsers(help='sub-command help')
 
     # list modules in spexxy.methods

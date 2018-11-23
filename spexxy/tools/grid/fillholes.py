@@ -2,6 +2,7 @@ import logging
 import os
 from typing import Callable
 import numpy as np
+import argparse
 
 
 log = logging.getLogger(__name__)
@@ -9,7 +10,8 @@ log = logging.getLogger(__name__)
 
 def add_parser(subparsers):
     # init parser
-    parser = subparsers.add_parser('fillholes', help='Fill holes in a file grid')
+    parser = subparsers.add_parser('fillholes', help='Fill holes in a file grid',
+                                   formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('grid', type=str, help='Name of grid CSV', default='grid.csv')
     parser.add_argument('output', type=str, help='Directory to store interpolated spectra in', default='interpolated/')
 
