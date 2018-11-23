@@ -150,7 +150,7 @@ class spexxyObject(object):
         """
 
         # create object
-        obj = spexxyObject.create_object(definition, log=log)
+        obj = spexxyObject.create_object(definition, log=log, objects=self.objects)
 
         # check type
         if not isinstance(obj, klass):
@@ -232,7 +232,8 @@ class spexxyObject(object):
                     raise ValueError('Dict must contain name->definition pairs.')
 
                 # create them
-                objs = [self._create_object(name, defn, klass, group, log=log) for name, defn in definition.items()]
+                objs = [self._create_object(name, defn, klass, group, log=log)
+                        for name, defn in definition.items()]
 
         else:
             raise ValueError('Unknown type for object definition.')

@@ -12,9 +12,10 @@ from spexxy.mask import Mask
 from spexxy.weight import Weight
 from spexxy.data import SpectrumFitsHDU
 from spexxy.object import spexxyObject
+from .main import MainRoutine
 
 
-class ParamsFit(spexxyObject):
+class ParamsFit(MainRoutine):
     """ParamsFit is a fitting routine for spexxy that uses a Levenberg-Marquardt optimization to fit a set of
     model spectra (components) to a given spectrum.
     """
@@ -39,7 +40,7 @@ class ParamsFit(spexxyObject):
             epsfcn: A variable used in determining a suitable step length for the forward- difference approximation of
                 the Jacobian (see scipy documentation)
         """
-        spexxyObject.__init__(self, *args, **kwargs)
+        MainRoutine.__init__(self, *args, **kwargs)
 
         # remember variables
         self._max_fev = maxfev

@@ -129,6 +129,11 @@ class Component(spexxyObject):
                 if key not in param:
                     param[key] = val
 
+            # remove stderr
+            for k in ['stderr']:
+                if k in param:
+                    del param['stderr']
+
             # add it to params
             params.add(self.prefix + name, **param)
 
