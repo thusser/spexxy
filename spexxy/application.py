@@ -141,8 +141,7 @@ class Application(object):
         for name, cmp in objects['components'].items():
             cmp.init(filename)
 
-        # start the loop for the cleaning algorithm,
-        # if clean==0, we do it once
+        # start fit
         results = None
         try:
             # do the fit
