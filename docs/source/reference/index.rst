@@ -9,4 +9,5 @@ API Reference
    grids
    interpolators
    masks
+   weights
    inits
