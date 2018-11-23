@@ -105,7 +105,7 @@ class spexxyObject(object):
                 return obj
         else:
             # nothing found
-            raise ValueError('Object "%s" of class "%s" not found in group "%s".', name, klass.__name__, group)
+            raise ValueError('Object "%s" of class "%s" not found in group "%s".' % (name, klass.__name__, group))
 
     def _find_name_in_group(self, group: str) -> str:
         """Finds a new unused name in the given group.
