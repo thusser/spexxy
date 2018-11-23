@@ -107,6 +107,9 @@ class ParamsFit(spexxyObject):
                     self.log.info('Fixing "%s" of component "%s" to its initial value of %f.',
                                   param_name, cmp_name, cmp[param_name])
                     cmp.set(param_name, vary=False)
+                else:
+                    # otherwise make it a free parameter
+                    cmp.set(param_name, vary=True)
 
         # Load spectrum
         spec, sigma, valid = self._load_spectrum(filename)
