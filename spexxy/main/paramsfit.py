@@ -8,7 +8,8 @@ from typing import List
 
 from spexxy.data import FitsSpectrum, Spectrum
 from spexxy.component import Component
-from spexxy.mask.mask import Mask
+from spexxy.mask import Mask
+from spexxy.weight import Weight
 from spexxy.data import SpectrumFitsHDU
 from spexxy.object import spexxyObject
 
@@ -19,7 +20,7 @@ class ParamsFit(spexxyObject):
     """
 
     def __init__(self, components: List[Component] = None, tellurics: Component = None, masks: List[Mask] = None,
-                 fixparams: List[str] = None, poly_degree: int = 40,
+                 weights: List[Weight] = None, fixparams: List[str] = None, poly_degree: int = 40,
                  maxfev: int = 500, ftol: float = 1.49012e-08, xtol: float = 1.49012e-08,
                  factor: float = 100.0, epsfcn: float = 1e-7, *args, **kwargs):
         """Initialize a new ParamsFit object
@@ -27,7 +28,8 @@ class ParamsFit(spexxyObject):
         Args:
             components: List of components (or descriptions to create them) to fit to the spectrum
             tellurics: Tellurics component to add to the fit.
-            masks:  List of mask components to use for masking the spectrum.
+            masks:  List of mask objects to use for masking the spectrum.
+            weights: List of weight objects to use for creating weights for the spectrum.
             fixparams: List of names of parameters to fix during the fit.
             poly_degree: Number of coefficients for the multiplicative polynomial.
             maxfev: The maximum number of calls to the function (see scipy documentation).
@@ -56,6 +58,9 @@ class ParamsFit(spexxyObject):
 
         # masks
         self._masks = self.get_objects(masks, Mask, 'masks')
+
+        # weights
+        self._weights = self.get_objects(weights, Weight, 'weights')
 
     def parameters(self) -> List[str]:
         """Get list of parameters fitted by this routine.
@@ -112,7 +117,19 @@ class ParamsFit(spexxyObject):
                     cmp.set(param_name, vary=True)
 
         # Load spectrum
-        spec, sigma, valid = self._load_spectrum(filename)
+        spec, valid = self._load_spectrum(filename)
+
+        # create weight array
+        self.log.info('Creating weights array...')
+        weights = np.ones((len(spec)))
+        if self._weights:
+            # loop all weights
+            for w in self._weights:
+                # multiply weights array with new weights
+                weights *= w(spec, filename)
+
+        # adjusting valid mask for weights
+        valid &= ~np.isnan(weights)
 
         # init stats
         stats = {'success': False}
@@ -128,7 +145,7 @@ class ParamsFit(spexxyObject):
         # start minimization
         self.log.info('Starting fit...')
         minimizer = lmfit.Minimizer(self._fit_func, params,
-                                    fcn_kws={'spec': spec, 'valid': valid, 'sigma': sigma, 'mult_poly': mult_poly},
+                                    fcn_kws={'spec': spec, 'valid': valid, 'weights': weights, 'mult_poly': mult_poly},
                                     iter_cb=self._callback, maxfev=self._max_fev,
                                     xtol=self._xtol, ftol=self._ftol, epsfcn=self._epsfcn,
                                     factor=self._factor, nan_policy='raise')
@@ -136,7 +153,7 @@ class ParamsFit(spexxyObject):
         self.log.info('Finished fit.')
 
         # get best fit
-        best_fit = self._model(result.params, spec=spec, sigma=sigma, valid=valid, mult_poly=mult_poly)
+        best_fit = self._model(result.params, spec=spec, weights=weights, valid=valid, mult_poly=mult_poly)
 
         # estimate SNR
         snr = None if best_fit is None else spec.estimate_snr(best_fit)
@@ -193,14 +210,14 @@ class ParamsFit(spexxyObject):
                 results.extend([result.params[p].value, result.params[p].stderr])
         return results
 
-    def _load_spectrum(self, filename: str) -> (Spectrum, np.ndarray, np.ndarray):
+    def _load_spectrum(self, filename: str) -> (Spectrum, np.ndarray):
         """Loads the given spectrum and its uncertainties and creates a mask.
 
         Args:
             filename: Name of file to load.
 
         Returns:
-            Tuple of Spectrum, sigma array and mask of valid pixels
+            Tuple of Spectrum and mask of valid pixels
         """
 
         # open file
@@ -209,24 +226,18 @@ class ParamsFit(spexxyObject):
             # get spectrum
             spec = fs.spectrum
 
-            # sigma values for spectrum
-            sigma = fs.sigma
-
             # mask of good pixels
             valid = fs.good_pixels.astype(np.bool)
 
             # mask all NaNs
             valid &= ~np.isnan(spec.flux) & ~np.isnan(spec.wave)
 
-            # and those in sigma
-            valid &= ~np.isnan(sigma)
-
             # add other masks
             for mask in self._masks:
                 valid &= mask(fs.spectrum, filename=fs.filename)
 
         # return them
-        return spec, sigma, valid
+        return spec, valid
 
     def _callback(self, params: Parameters, iter: int, resid: np.ndarray, *args, **kws):
         """Callback function that is called at each iteration of the optimization.
@@ -252,29 +263,29 @@ class ParamsFit(spexxyObject):
         # log it
         self.log.info('(%3d) %s' % (iter, ', '.join(messages)))
 
-    def _fit_func(self, params: Parameters, spec: Spectrum, sigma: np.ndarray, valid: np.ndarray,
+    def _fit_func(self, params: Parameters, spec: Spectrum, weights: np.ndarray, valid: np.ndarray,
                   mult_poly: np.ndarray) -> np.ndarray:
         """Fit function for LM optimization
 
         Args:
             params: Parameters to evaluate.
             spec: Spectrum to fit.
-            sigma: Uncertainties for spec.
+            weights: Weights for spec.
             valid: Valid pixel mask for spec.
             mult_poly: Multiplicative polynomial.
 
         Returns:
-            Sigma scaled residuals between spec and model.
+            Weights scaled residuals between spec and model.
         """
 
         # evaluate params
         try:
-            model = self._model(params, spec, sigma, valid, mult_poly)
+            model = self._model(params, spec, weights, valid, mult_poly)
         except KeyError:
             return np.ones((len(spec[valid]))) * sys.float_info.max
 
         # calc residuals
-        res = (model.flux - spec.flux) / sigma
+        res = (model.flux - spec.flux) * weights
 
         # replace nans by zeros
         res[np.isnan(res)] = 0
@@ -282,14 +293,14 @@ class ParamsFit(spexxyObject):
         # return residuals
         return res
 
-    def _model(self, params: Parameters, spec: Spectrum, sigma: np.ndarray, valid: np.ndarray,
+    def _model(self, params: Parameters, spec: Spectrum, weights: np.ndarray, valid: np.ndarray,
                mult_poly: np.ndarray) -> Spectrum:
         """Returns the model for the given parameters.
 
         Args:
             params: Parameters to evaluate.
             spec: Spectrum to fit.
-            sigma: Uncertainties for spec.
+            weights: Weights for spec.
             valid: Valid pixel mask for spec.
             mult_poly: Multiplicative polynomial.
 
@@ -338,7 +349,7 @@ class ParamsFit(spexxyObject):
 
             # if we only have one component, it's easy :-)
             a = models[0].flux[v] * mult_poly[v]
-            b = spec.flux[v] / sigma[v]
+            b = spec.flux[v] * weights[v]
             self._cmps[0].weight = (a * b).sum() / (a * a).sum()
         else:
             self._fit_component_weights(models)
