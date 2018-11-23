@@ -46,22 +46,13 @@ class ParamsFit(spexxyObject):
         self._factor = factor
         self._epsfcn = epsfcn
         self._poly_degree = poly_degree
+        self._fixparams = fixparams
 
         # find components
         self._cmps = self.get_objects(components, Component, 'components')
 
         # find tellurics
         self._tellurics = self.get_objects(tellurics, Component, 'components', single=True)
-
-        # fix any parameters?
-        for cmp_name, cmp in self.objects['components'].items():
-            # loop all parameters of this component
-            for param_name in cmp.param_names:
-                # do we have parameters to fix and is this one of them?
-                if fixparams is not None and cmp_name in fixparams and param_name in fixparams[cmp_name]:
-                    self.log.info('Fixing "%s" of component "%s" to its initial value of %f.',
-                                  param_name, cmp_name, cmp[param_name])
-                    cmp.set(param_name, vary=False)
 
         # masks
         self._masks = self.get_objects(masks, Mask, 'masks')
@@ -106,6 +97,16 @@ class ParamsFit(spexxyObject):
         Returns:
             List of final values of parameters, ordered in the same way as the return value of parameters()
         """
+
+        # fix any parameters?
+        for cmp_name, cmp in self.objects['components'].items():
+            # loop all parameters of this component
+            for param_name in cmp.param_names:
+                # do we have parameters to fix and is this one of them?
+                if self._fixparams and cmp_name in self._fixparams and param_name in self._fixparams[cmp_name]:
+                    self.log.info('Fixing "%s" of component "%s" to its initial value of %f.',
+                                  param_name, cmp_name, cmp[param_name])
+                    cmp.set(param_name, vary=False)
 
         # Load spectrum
         spec, sigma, valid = self._load_spectrum(filename)
