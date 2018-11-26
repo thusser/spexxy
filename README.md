@@ -1,3 +1,5 @@
+## *spexxy*
+
 ```text
 ___ _ __   _____  ____  ___   _ 
 / __| '_ \ / _ \ \/ /\ \/ / | | |
@@ -26,6 +28,12 @@ You can find the documentation for spexxy at <https://spexxy.readthedocs.io/>.
 | master  | develop |
 | --- | --- |
 | ![master build status](https://api.travis-ci.com/thusser/spexxy.svg?branch=master) | ![develop build status](https://api.travis-ci.com/thusser/spexxy.svg?branch=develop) |
+
+
+### Versions
+See [Changelog](CHANGELOG.md).
+* v2.1 (2018-11-26)
+* v2.0 (2018-11-16)
 
 
 ### References
