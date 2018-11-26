@@ -1,3 +1,5 @@
+## *spexxy*
+
 ```text
 ___ _ __   _____  ____  ___   _ 
 / __| '_ \ / _ \ \/ /\ \/ / | | |
@@ -11,6 +13,10 @@ ___ _ __   _____  ____  ___   _
 that wrap the framework using a YAML configuration file and provide some additional command line
 tools, respectively.
 
+From the beginning, *spexxy* has been strongly influenced by [ULySS](http://ulyss.univ-lyon1.fr/). The present
+version 2 of *spexxy* is not a complete rewrite of the original version, but a highly refactored and optimized 
+re-release.
+
 
 ### Documentation
 
@@ -22,6 +28,12 @@ You can find the documentation for spexxy at <https://spexxy.readthedocs.io/>.
 | master  | develop |
 | --- | --- |
 | ![master build status](https://api.travis-ci.com/thusser/spexxy.svg?branch=master) | ![develop build status](https://api.travis-ci.com/thusser/spexxy.svg?branch=develop) |
+
+
+### Versions
+See [Changelog](CHANGELOG.md).
+* v2.1 (2018-11-26)
+* v2.0 (2018-11-16)
 
 
 ### References

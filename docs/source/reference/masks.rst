@@ -1,6 +1,6 @@
 Masks
 =====
-Classes inheriting form :class:`Init <spexxy.mask.Mask>` create good pixel masks for spectra. They are called
+Classes inheriting form :class:`Mask <spexxy.mask.Mask>` create good pixel masks for spectra. They are called
 by the main routine with each component as parameter. So in order to work, derived classes must implement both
 the constructor :meth:`__init__() <spexxy.mask.Mask.__init__>` and :meth:`__call__() <spexxy.mask.Mask.__call__>`.
 

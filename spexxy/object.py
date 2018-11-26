@@ -105,7 +105,7 @@ class spexxyObject(object):
                 return obj
         else:
             # nothing found
-            raise ValueError('Object "%s" of class "%s" not found in group "%s".', name, klass.__name__, group)
+            raise ValueError('Object "%s" of class "%s" not found in group "%s".' % (name, klass.__name__, group))
 
     def _find_name_in_group(self, group: str) -> str:
         """Finds a new unused name in the given group.
@@ -150,7 +150,7 @@ class spexxyObject(object):
         """
 
         # create object
-        obj = spexxyObject.create_object(definition, log=log)
+        obj = spexxyObject.create_object(definition, log=log, objects=self.objects)
 
         # check type
         if not isinstance(obj, klass):
@@ -232,7 +232,8 @@ class spexxyObject(object):
                     raise ValueError('Dict must contain name->definition pairs.')
 
                 # create them
-                objs = [self._create_object(name, defn, klass, group, log=log) for name, defn in definition.items()]
+                objs = [self._create_object(name, defn, klass, group, log=log)
+                        for name, defn in definition.items()]
 
         else:
             raise ValueError('Unknown type for object definition.')

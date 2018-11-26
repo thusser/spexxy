@@ -2,7 +2,7 @@ Grids
 =====
 
 A "Grid" in *spexxy* is anything that provides any kind of data in a regularly spaced parameter space. The base class
-for all Grids is :class:`Grid`, which also defines some convenience methods.
+for all Grids is :class:`spexxy.grid.Grid`, which also defines some convenience methods.
 
 The usual way of getting data from a grid is by calling it with the requested parameters::
 

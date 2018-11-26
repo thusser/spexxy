@@ -1,4 +1,5 @@
 from .init import Init
+from ..component import Component
 
 
 class InitFromValues(Init):
@@ -16,7 +17,7 @@ class InitFromValues(Init):
         Init.__init__(self, *args, **kwargs)
         self._values = values
 
-    def __call__(self, cmp: 'Component', filename: str):
+    def __call__(self, cmp: Component, filename: str):
         """Initializes parameters of the given component with values from the configuration
 
         Args:
