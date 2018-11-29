@@ -121,7 +121,7 @@ def run(args):
                 continue
 
             # resample
-            tell = tell.resample_with_holes(wave_start=wave_start, wave_step=wave_step, wave_count=wave_count)
+            tell = tell.resample(wave_start=wave_start, wave_step=wave_step, wave_count=wave_count)
 
             # tellurics exist? on first iteration we create the array.
             if tellurics is None:
@@ -140,7 +140,7 @@ def run(args):
     tellurics[w] /= weights[w]
 
     # create spectrum for tellurics and save it
-    tell_spec = SpectrumFits.from_flux(tellurics, wave_start, wave_step, primary=True)
+    tell_spec = SpectrumFits(flux=tellurics, wave_start=wave_start, wave_step=wave_step, primary=True)
     tell_spec.save(args.output)
 
     # output
