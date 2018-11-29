@@ -57,9 +57,9 @@ def run(args):
     # get all snr values
     logging.info('Extracting all S/N values...')
     snrs = {}
-    for filename, hdr in headers.items():
+    for i, row in headers.iterrows():
         try:
-            snrs[filename] = float(hdr['HIERARCH SPECTRUM SNRATIO'])
+            snrs[row['FILE']] = float(row['HIERARCH SPECTRUM SNRATIO'])
         except ValueError:
             continue
 
