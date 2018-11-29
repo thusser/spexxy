@@ -144,8 +144,8 @@ class ParamsFit(MainRoutine):
         self.log.info('Starting fit...')
         minimizer = lmfit.Minimizer(self._fit_func, params,
                                     fcn_kws={'spec': spec, 'valid': valid, 'weights': weights, 'mult_poly': mult_poly},
-                                    iter_cb=self._callback, maxfev=self._max_fev, nan_policy='raise')
-                                    #xtol=self._xtol, ftol=self._ftol, epsfcn=self._epsfcn, factor=self._factor)
+                                    iter_cb=self._callback, maxfev=self._max_fev, nan_policy='raise',
+                                    xtol=self._xtol, ftol=self._ftol, epsfcn=self._epsfcn, factor=self._factor)
         result = minimizer.leastsq()
         self.log.info('Finished fit.')
 
