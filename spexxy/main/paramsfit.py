@@ -132,9 +132,6 @@ class ParamsFit(MainRoutine):
         # adjusting valid mask for weights
         valid &= ~np.isnan(weights)
 
-        # init stats
-        stats = {'success': False}
-
         # initialize multiplicative polynomial with ones
         mult_poly = np.ones((len(spec)))
 
@@ -197,7 +194,7 @@ class ParamsFit(MainRoutine):
                  'snr': snr}
 
         # write results back to file
-        self._write_results_to_file(filename, spec, valid, result, best_fit, mult_poly)
+        self._write_results_to_file(filename, spec, valid, result, best_fit, mult_poly, stats)
 
         # build list of results and return them
         results = []
@@ -408,7 +405,7 @@ class ParamsFit(MainRoutine):
             cmp.weight = coeffs[i]
 
     def _write_results_to_file(self, filename: str, spec: Spectrum, valid: np.ndarray, result: MinimizerResult,
-                               best_fit: Spectrum, mult_poly: np.ndarray):
+                               best_fit: Spectrum, mult_poly: np.ndarray, stats: dict):
         """Writes results of fit back to file.
 
         Args:
@@ -418,15 +415,16 @@ class ParamsFit(MainRoutine):
             result: Result from optimization.
             best_fit: Best fit model.
             mult_poly: Multiplicative polynomial.
+            stats: Fit statistics.
         """
 
         # Write fits results back to file
         self.log.info("Writing results to file.")
         with FitsSpectrum(filename, 'rw') as fs:
             # stats
-            stats = fs.results('SPEXXY')
+            res = fs.results('SPEXXY')
             for x in stats:
-                stats[x] = stats[x]
+                res[x] = stats[x]
 
             # loop all components
             for cmp in self._cmps:
