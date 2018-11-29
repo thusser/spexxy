@@ -361,7 +361,7 @@ class ParamsFit(MainRoutine):
         # calculate new multiplicative poly
         leg = np.polynomial.Legendre.fit(spec.wave[valid], spec.flux[valid] / model.flux[valid],
                                          deg=self._poly_degree)
-        mult_poly = leg(spec.wave)
+        mult_poly[:] = leg(spec.wave)
 
         # multiply continuum
         model.flux *= mult_poly
