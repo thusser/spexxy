@@ -1,6 +1,6 @@
 import sys
-from spexxy.utils import methods
+from spexxy.tools import add_tree_node
 
 
 def add_parser(parser):
-    methods.add_tree_node(parser, sys.modules[__name__], 'Tellurics operations')
+    add_tree_node(parser, sys.modules[__name__], 'tellurics operations')
