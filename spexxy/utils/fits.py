@@ -34,7 +34,7 @@ def bulk_read_header(folder_or_files: Union[str, List], keys: Union[str, List[st
         folder = folder_or_files
     elif isinstance(folder_or_files, list):
         files = folder_or_files
-        folder = os.path.dirname(files[0])
+        folder = os.path.abspath(os.path.dirname(files[0]))
     else:
         raise ValueError('Unknown format.')
 
