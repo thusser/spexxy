@@ -385,7 +385,7 @@ class Spectrum(object):
         else:
             # old borders
             old_borders = np.empty((len(spec.flux) + 1))
-            old_borders[1:-1] = (spec.wave[1:] + wave[0:-1]) * 0.5
+            old_borders[1:-1] = (spec.wave[1:] + spec.wave[0:-1]) * 0.5
             old_borders[0] = spec.wave[0] + spec.wave[1] - old_borders[1]
             old_borders[-1] = spec.wave[-2] - spec.wave[-1] + old_borders[-2]
 
