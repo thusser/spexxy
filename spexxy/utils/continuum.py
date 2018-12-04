@@ -218,15 +218,17 @@ class SigmaClipping(Continuum):
 class Regions(Continuum):
     """Derives continum from given regions."""
 
-    def __init__(self, regions: List[Tuple[float, float]], *args, **kwargs):
+    def __init__(self, regions: List[Tuple[float, float]], average: bool = True, *args, **kwargs):
         """Initializes new Regions continuum
 
         Args:
             regions: List of tuples with start end end x values for regions.
+            average: Use average wave/flux in regions instead of all pixels.
         """
 
         Continuum.__init__(self, *args, **kwargs)
         self.regions = regions
+        self.average = average
 
     def __call__(self, x: np.ndarray, y: np.ndarray, valid: np.ndarray = None) -> np.ndarray:
         """Calculate the continuum.
@@ -242,7 +244,7 @@ class Regions(Continuum):
 
         # no valid array?
         if valid is None:
-            valid = np.ones((x.shape), dtype=np.bool)
+            valid = np.ones(x.shape, dtype=np.bool)
 
         # evaluate regions
         xx = []
@@ -251,9 +253,13 @@ class Regions(Continuum):
             # create mask
             mask = valid & (x >= r[0]) & (x <= r[1])
 
-            # add mean of points within mask
-            xx.append(np.mean(x[mask]))
-            yy.append(np.mean(y[mask]))
+            # add (mean) of points within mask
+            if self.average:
+                xx.append(np.mean(x[mask]))
+                yy.append(np.mean(y[mask]))
+            else:
+                xx.extend(x[mask])
+                yy.extend(y[mask])
 
         # fit continuum
         return self._fit_poly(xx, yy, xout=x)
