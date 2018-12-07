@@ -82,6 +82,30 @@ class Continuum(object):
         # fit polynomial
         return self._fit_poly(x[valid], y[valid], x)
 
+    def remove(self, x: np.ndarray, y: np.ndarray, valid: np.ndarray = None) -> np.ndarray:
+        """Remove continuum from a given array.
+
+        Args:
+            x: x array for continuum to fit.
+            y: y array for continuum to fit.
+            valid: Valid pixels mask.
+
+        Returns:
+            Array containing continuum corrected y array.
+        """
+
+        # calculate continuum
+        cont = self(x, y, valid)
+
+        # do we have negative values in the continuum?
+        min_cont = np.min(cont)
+        if min_cont < 1:
+            # correct y by shifting it into positive range first
+            return (y + min_cont + 1) / (cont + min_cont + 1)
+        else:
+            # otherwise remove continuum directly
+            return y / cont
+
 
 class MaximumBin(Continuum):
     """Derive continuum as spline to all points that are within a given fraction of largest points in a given number
