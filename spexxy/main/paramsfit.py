@@ -23,7 +23,7 @@ class ParamsFit(MainRoutine):
     def __init__(self, components: List[Component] = None, tellurics: Component = None, masks: List[Mask] = None,
                  weights: List[Weight] = None, fixparams: List[str] = None, poly_degree: int = 40,
                  maxfev: int = 500, ftol: float = 1.49012e-08, xtol: float = 1.49012e-08,
-                 factor: float = 100.0, epsfcn: float = 1e-7, *args, **kwargs):
+                 factor: float = 100.0, epsfcn: float = 1e-7, min_valid_pixels: float = 0.5, *args, **kwargs):
         """Initialize a new ParamsFit object
 
         Args:
@@ -39,6 +39,7 @@ class ParamsFit(MainRoutine):
             factor: A parameter determining the initial step bound (factor * || diag * x||) (see scipy documentation).
             epsfcn: A variable used in determining a suitable step length for the forward- difference approximation of
                 the Jacobian (see scipy documentation)
+            min_valid_pixels: Fraction of minimum number of required pixels to continue with fit.
         """
         MainRoutine.__init__(self, *args, **kwargs)
 
@@ -50,6 +51,7 @@ class ParamsFit(MainRoutine):
         self._epsfcn = epsfcn
         self._poly_degree = poly_degree
         self._fixparams = fixparams
+        self._min_valid_pixels = min_valid_pixels
 
         # find components
         self._cmps = self.get_objects(components, Component, 'components')
@@ -131,6 +133,11 @@ class ParamsFit(MainRoutine):
 
         # adjusting valid mask for weights
         valid &= ~np.isnan(weights)
+
+        # less than 50% of pixels valid?
+        if np.sum(valid) < self._min_valid_pixels * len(valid):
+            self.log.warning('Less then %d percent of pixels valid, skipping...', self._min_valid_pixels * 100)
+            return [None] * len(self.parameters()) * 2
 
         # initialize multiplicative polynomial with ones
         mult_poly = np.ones((len(spec)))
