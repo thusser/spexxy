@@ -158,7 +158,7 @@ class Application(object):
 
                 # write results
                 if len(results) > 0:
-                    f.write(',' + ','.join([str(r) for r in results]))
+                    f.write(',' + ','.join(['' if r is None else str(r) for r in results]))
 
                 # write line break
                 f.write('\n')
