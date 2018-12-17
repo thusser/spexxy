@@ -287,7 +287,7 @@ class ParamsFit(MainRoutine):
             model = self._model(params, spec, weights, valid, mult_poly)
         except KeyError:
             #a = np.ones((len(spec))) * sys.float_info.max
-            log.error('Could not interpolate model.')
+            #log.error('Could not interpolate model.')
             return np.ones((len(spec))) * 1e100
 
         # calc residuals
