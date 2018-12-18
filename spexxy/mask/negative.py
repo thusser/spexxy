@@ -25,9 +25,9 @@ class MaskNegative(Mask):
             Boolean array containing good pixel mask for given spectrum.
         """
 
-        # create mask and return it
+        # mask all negative pixels, i.e. create a mask with only positive fluxes, and return it
         self.log.info('Masking all negative pixels in spectrum...')
-        return spectrum.flux <= 0
+        return spectrum.flux > 0
 
 
 __all__ = ['MaskNegative']
