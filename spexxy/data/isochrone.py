@@ -321,7 +321,7 @@ class Isochrone:
         return Isochrone(data[['Teff', 'logg', 'logL/Lo', 'mbol', 'M_ini', 'M_act'] + filters], meta)
 
     @staticmethod
-    def import_cmd29(filename: str) -> Isochrone:
+    def import_cmd29(filename: str) -> 'Isochrone':
         """Import PARSEC isochrone in version 2.9.
 
         Args:
