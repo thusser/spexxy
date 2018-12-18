@@ -1,7 +1,5 @@
-import glob
 import logging
 import math
-import os
 import re
 import io
 
@@ -11,29 +9,74 @@ from scipy import optimize
 
 
 class Isochrone:
-    def __init__(self, data, meta=None):
+    """Handles an isochrone in spexxy."""
+    def __init__(self, data: pd.DataFrame, meta: dict = None):
+        """Create a new isochrone.
+        
+        Args:
+            data: Actual isochrone data with column Teff, logg, logL/Lo, mbol, M_ini, M_act, and one for each filter.
+            meta: Meta data for the isochrone, i.e. age, metallicity, etc.
+        """
         self._data = data
         self._meta = meta
 
     @property
-    def filters(self):
+    def filters(self) -> list:
+        """Returns a list of filters defines by this isochrone.
+
+        Returns:
+            List of filters.
+        """
         return list(self._data.columns.values[6:])
 
     @property
-    def data(self):
+    def data(self) -> pd.DataFrame:
+        """Returns the full isochrone data.
+
+        Returns:
+            Isochrone data table.
+        """
         return self._data
 
-    def __getitem__(self, item):
+    def __getitem__(self, item: str) -> float:
+        """Returns a meta data item.
+
+        Args:
+            item: Name of meta data.
+
+        Returns:
+            Meta data value.
+        """
         return self._meta[item] if item in self._meta else None
 
-    def __setitem__(self, item, value):
+    def __setitem__(self, item: str, value: float):
+        """Sets a given meta data item.
+
+        Args:
+            item: Name of meta data.
+            value: New value for meta data.
+        """
         self._meta[item] = value
 
-    def copy(self):
+    def copy(self) -> 'Isochrone':
+        """Create a deep copy of this isochrone.
+
+        Returns:
+            Copy of this isochrone.
+        """
         return Isochrone(self._data.copy(), dict(self._meta))
 
     @staticmethod
-    def load(filename: str):
+    def load(filename: str) -> 'Isochrone':
+        """Load an isochrone from file.
+
+        Args:
+            filename: Filename of isochrone.
+
+        Returns:
+            Loaded isochrone.
+        """
+
         # try to read meta data
         meta = {}
         with open(filename, 'r') as f:
@@ -64,7 +107,13 @@ class Isochrone:
         # return new Isochrone
         return Isochrone(data, meta)
 
-    def save(self, filename):
+    def save(self, filename: str):
+        """Write isochrone to a file.
+
+        Args:
+            filename: Name of file to write isochrone in.
+        """
+
         # open file
         with open(filename, 'w') as f:
             # write all meta data
@@ -76,16 +125,37 @@ class Isochrone:
                 self._data.to_csv(sio, index=False)
                 f.write(sio.getvalue())
 
-    def _polynomial(self, x, y, p):
+    @staticmethod
+    def _polynomial(x, y, p):
+        """Polynomial that can be fitted to an isochrone.
+
+        Args:
+            x: Colours of points in isochrone.
+            y: Magnitudes of points in isochrone.
+            p: Coefficients for polynomial.
+
+        Returns:
+            Evaluated polynomial.
+        """
         return p[0] + p[1] * x + p[2] * y + p[3] * x * x + p[4] * y * y + p[5] * x * y + p[6] * x * x * x + \
                p[7] * x * x * y + p[8] * x * y * y + p[9] * y * y * y
 
-    def _fit(self, col, mag, value):
+    def _fit(self, col: list, mag: list, value: list):
+        """Fit a polynomial to the isochrone.
+
+        Args:
+            col: List (or equivalent) of colours to fit.
+            mag: List (or equivalent) of magnitudes to fit.
+            value: List (or equivalent) of data to fit.
+
+        Returns:
+
+        """
         # error function
         func = lambda p: self._polynomial(col, mag, p) - value
 
         # initial guess
-        initial = [1, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        initial = np.array([1, 0, 0, 0, 0, 0, 0, 0, 0, 0])
 
         # fit
         res = optimize.leastsq(func, initial, full_output=True)
@@ -95,17 +165,24 @@ class Isochrone:
         # return parameters
         return res[0]
 
-    def interpolator(self, column, filter1, filter2):
+    def interpolator(self, column: str, filter1: str, filter2: str):
+        """Create a polynomial interpolator for the given data column and two filters.
+
+        Args:
+            column: Name of column containing data.
+            filter1: Name of first filter, used for magnitude.
+            filter2: Name of second filter, colour is calculated as filter1-filter2.
+
+        Returns:
+            Function for interpolating isochrone with a polynomial.
+        """
+
         # create colour column and get mag
         colour = self._data[filter1] - self._data[filter2]
         magnitudes = self._data[filter1]
 
-        # limits on column
-        col = self._data[column]
-        limits = (np.min(col), np.max(col))
-
         # fit polynomial
-        poly = self._fit(colour, magnitudes, col)
+        poly = self._fit(colour, magnitudes, self._data[column])
 
         # define method to return
         def interpolator_inner(col, mag):
@@ -114,7 +191,17 @@ class Isochrone:
         # return method
         return interpolator_inner
 
-    def nearest(self, filter1, filter2):
+    def nearest(self, filter1: str, filter2: str):
+        """Creates an 'interpolator' that returns the nearest point on the isochrone for a colour/magnitude pair.
+
+        Args:
+            filter1: Name of first filter, used for magnitude.
+            filter2: Name of second filter, colour is calculated as filter1-filter2.
+
+        Returns:
+            Function that calculates nearest neighbours on isochrone.
+        """
+
         # create colour column and get mag
         colour = self._data[filter1] - self._data[filter2]
         magnitudes = self._data[filter1]
@@ -143,7 +230,13 @@ class Isochrone:
         # return inner method
         return nearest_inner
 
-    def apply_distance(self, distance):
+    def apply_distance(self, distance: float):
+        """Apply a distance in pc to the isochrone.
+
+        Args:
+            distance: Distance in pc.
+        """
+
         # calculating distance modulus
         dist_mod = 5. * np.log10(distance) - 5.
 
@@ -163,7 +256,16 @@ class Isochrone:
                 self._data.drop(f, axis=1, inplace=True)
 
     @staticmethod
-    def import_cmd27(filename):
+    def import_cmd27(filename) -> 'Isochrone':
+        """Import PARSEC isochrone in version 2.7.
+
+        Args:
+            filename: Name of file to load.
+
+        Returns:
+            Parsed isochrone.
+        """
+
         # regular expression for search for end of header
         re_hdr = re.compile(r'\[M/H\]\s+=\s+([+-]?[0-9]+\.[0-9]+).*Age\s+=\s+([0-9]*\.[0-9]*e[+-][0-9]*)\s+yr')
 
@@ -219,7 +321,16 @@ class Isochrone:
         return Isochrone(data[['Teff', 'logg', 'logL/Lo', 'mbol', 'M_ini', 'M_act'] + filters], meta)
 
     @staticmethod
-    def import_cmd29(filename):
+    def import_cmd29(filename: str) -> Isochrone:
+        """Import PARSEC isochrone in version 2.9.
+
+        Args:
+            filename: Name of file to load.
+
+        Returns:
+            Parsed isochrone.
+        """
+
         # find line with header
         header = None
         logging.info('Searching for header...')
@@ -289,7 +400,13 @@ class Isochrone:
         # finished
         return isochrones[0] if len(isochrones) == 1 else isochrones
 
-    def cut_regions(self, regions):
+    def cut_regions(self, regions: list):
+        """Tries to find regions in isochrone and cuts it down to the defined regions.
+
+        Args:
+            regions: List of region names (MS, SGB, RGB, HB).
+        """
+
         # sort isochrone by M_ini
         isochrone = self._data[:]
         isochrone.sort_values('M_ini', inplace=True)
@@ -320,7 +437,6 @@ class Isochrone:
         i = np.argmax(Teff.values)
         logging.info('Found end of horizontal branch at %.2fK.', Teff.iloc[i])
         HB = isochrone.iloc[i:]
-        isochrone = isochrone.iloc[:i]
 
         # connect parts again
         parts = []
@@ -333,3 +449,6 @@ class Isochrone:
         # if 'AGB' in regions:
         #    parts += [AGB]
         self._data = pd.concat(parts)
+
+
+__all__ = ['Isochrone']
