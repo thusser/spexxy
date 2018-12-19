@@ -367,9 +367,7 @@ class ParamsFit(MainRoutine):
             model.flux += models[i].flux * self._cmps[i].weight
 
         # calculate new multiplicative poly
-        leg = np.polynomial.Legendre.fit(spec.wave[valid], spec.flux[valid] / model.flux[valid],
-                                         deg=self._poly_degree)
-        mult_poly[:] = leg(spec.wave)
+        mult_poly[:] = self._calculate_mult_poly(spec, model, valid)
 
         # multiply continuum
         model.flux *= mult_poly
@@ -384,6 +382,14 @@ class ParamsFit(MainRoutine):
 
         # return model
         return model
+
+    def _calculate_mult_poly(self, spec, model, valid):
+        # create Legendre fitter
+        # obviously the Legendre module automatically maps the x values to the range -1..1
+        leg = np.polynomial.Legendre.fit(spec.wave[valid], spec.flux[valid] / model.flux[valid], deg=self._poly_degree)
+
+        # return new polynomial
+        return leg(spec.wave)
 
     def _fit_component_weights(self, models: List[Spectrum]):
         """In case we got more than one model, we need to weight them.
