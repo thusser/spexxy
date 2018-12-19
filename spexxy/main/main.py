@@ -1,16 +1,5 @@
-import sys
-import lmfit
-import numpy as np
-import scipy.linalg
-from lmfit import Parameters
-from lmfit.minimizer import MinimizerResult
 from typing import List
 
-from spexxy.data import FitsSpectrum, Spectrum
-from spexxy.component import Component
-from spexxy.mask import Mask
-from spexxy.weight import Weight
-from spexxy.data import SpectrumFitsHDU
 from spexxy.object import spexxyObject
 
 
