@@ -115,7 +115,7 @@ class SplineInterpolator(Interpolator):
             x = []
             y = []
             ilower = None
-            for i in range(-self._npoints, 1+self._npoints):
+            for i in range(-self._npoints, 2+self._npoints):
                 if i == 0:
                     # we got this value already, store it
                     x.append(x_lower)
@@ -136,6 +136,7 @@ class SplineInterpolator(Interpolator):
                         pass
 
             # calculate 2nd derivatives
+            print(x, y)
             y2 = self._spline(x, y)
 
             # set them
