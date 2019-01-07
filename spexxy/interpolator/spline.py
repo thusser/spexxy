@@ -9,7 +9,7 @@ from ..data import Spectrum
 class SplineInterpolator(Interpolator):
     """A cubic spline interpolator that operates on a given grid."""
 
-    def __init__(self, grid: Grid, derivs: Grid = None, n=2, *args, **kwargs):
+    def __init__(self, grid: Grid, derivs: Grid = None, n=1, *args, **kwargs):
         """Initializes a new linear interpolator.
 
         Args:
