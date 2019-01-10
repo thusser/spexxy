@@ -53,6 +53,14 @@ class ParamsFit(MainRoutine):
         self._fixparams = fixparams
         self._min_valid_pixels = min_valid_pixels
 
+        # spectrum
+        self._spec = None
+        self._valid = None
+        self._weight = None
+
+        # polynomial
+        self._mult_poly = None
+
         # find components
         self._cmps = self.get_objects(components, Component, 'components')
 
@@ -120,27 +128,27 @@ class ParamsFit(MainRoutine):
                     cmp.set(param_name, vary=True)
 
         # Load spectrum
-        spec, valid = self._load_spectrum(filename)
+        self._load_spectrum(filename)
 
         # create weight array
         self.log.info('Creating weights array...')
-        weights = np.ones((len(spec)))
-        if self._weights:
+        self._weight = np.ones((len(self._spec)))
+        if self._weights is not None:
             # loop all weights
             for w in self._weights:
                 # multiply weights array with new weights
-                weights *= w(spec, filename)
+                self._weight *= w(self._spec, filename)
 
         # adjusting valid mask for weights
-        valid &= ~np.isnan(weights)
+        self._valid &= ~np.isnan(self._weight)
 
         # less than 50% of pixels valid?
-        if np.sum(valid) < self._min_valid_pixels * len(valid):
+        if np.sum(self._valid) < self._min_valid_pixels * len(self._valid):
             self.log.warning('Less then %d percent of pixels valid, skipping...', self._min_valid_pixels * 100)
             return [None] * len(self.parameters()) * 2
 
         # initialize multiplicative polynomial with ones
-        mult_poly = np.ones((len(spec)))
+        self._mult_poly = np.ones((len(self._spec)))
 
         # get parameters
         params = Parameters()
@@ -150,14 +158,13 @@ class ParamsFit(MainRoutine):
         # start minimization
         self.log.info('Starting fit...')
         minimizer = lmfit.Minimizer(self._fit_func, params,
-                                    fcn_kws={'spec': spec, 'valid': valid, 'weights': weights, 'mult_poly': mult_poly},
                                     iter_cb=self._callback, maxfev=self._max_fev, nan_policy='raise',
                                     xtol=self._xtol, ftol=self._ftol, epsfcn=self._epsfcn, factor=self._factor)
         result = minimizer.leastsq()
         self.log.info('Finished fit.')
 
         # get best fit
-        best_fit = self._model(result.params, spec=spec, weights=weights, valid=valid, mult_poly=mult_poly)
+        best_fit = self._model(result.params)
 
         # estimate SNR
         snr = None if best_fit is None else spec.estimate_snr(best_fit)
@@ -200,7 +207,7 @@ class ParamsFit(MainRoutine):
                  'snr': snr}
 
         # write results back to file
-        self._write_results_to_file(filename, spec, valid, result, best_fit, mult_poly, stats)
+        self._write_results_to_file(filename, result, best_fit, stats)
 
         # build list of results and return them
         results = []
@@ -228,20 +235,17 @@ class ParamsFit(MainRoutine):
         self.log.info("Loading file {0:s}.".format(filename))
         with FitsSpectrum(filename) as fs:
             # get spectrum
-            spec = fs.spectrum
+            self._spec = fs.spectrum
 
             # mask of good pixels
-            valid = fs.good_pixels.astype(np.bool)
+            self._valid = fs.good_pixels.astype(np.bool)
 
             # mask all NaNs
-            valid &= ~np.isnan(spec.flux) & ~np.isnan(spec.wave)
+            self._valid &= ~np.isnan(self._spec.flux) & ~np.isnan(self._spec.wave)
 
             # add other masks
             for mask in self._masks:
-                valid &= mask(fs.spectrum, filename=fs.filename)
-
-        # return them
-        return spec, valid
+                self._valid &= mask(fs.spectrum, filename=fs.filename)
 
     def _callback(self, params: Parameters, iter: int, resid: np.ndarray, *args, **kws):
         """Callback function that is called at each iteration of the optimization.
@@ -264,19 +268,17 @@ class ParamsFit(MainRoutine):
             if len(values) > 0:
                 messages.append('%s(%s)' % (cmp.prefix, ', '.join(values)))
 
+        # add rms
+        messages.append('rms=%f' % np.sum(resid * resid))
+
         # log it
         self.log.info('(%3d) %s' % (iter, ', '.join(messages)))
 
-    def _fit_func(self, params: Parameters, spec: Spectrum, weights: np.ndarray, valid: np.ndarray,
-                  mult_poly: np.ndarray) -> np.ndarray:
+    def _fit_func(self, params: Parameters) -> np.ndarray:
         """Fit function for LM optimization
 
         Args:
             params: Parameters to evaluate.
-            spec: Spectrum to fit.
-            weights: Weights for spec.
-            valid: Valid pixel mask for spec.
-            mult_poly: Multiplicative polynomial.
 
         Returns:
             Weights scaled residuals between spec and model.
@@ -284,14 +286,14 @@ class ParamsFit(MainRoutine):
 
         # evaluate params
         try:
-            model = self._model(params, spec, weights, valid, mult_poly)
+            model = self._model(params)
         except KeyError:
             #a = np.ones((len(spec))) * sys.float_info.max
             #log.error('Could not interpolate model.')
-            return np.ones((len(spec))) * 1e100
+            return np.ones((len(self._spec))) * 1e100
 
         # calc residuals
-        res = (model.flux - spec.flux) * weights
+        res = (model.flux - self._spec.flux) * self._weight
 
         # replace nans by zeros
         res[np.isnan(res)] = 0
@@ -299,16 +301,12 @@ class ParamsFit(MainRoutine):
         # return residuals
         return res
 
-    def _model(self, params: Parameters, spec: Spectrum, weights: np.ndarray, valid: np.ndarray,
-               mult_poly: np.ndarray) -> Spectrum:
+    def _model(self, params: Parameters) -> Spectrum:
         """Returns the model for the given parameters.
 
         Args:
             params: Parameters to evaluate.
             spec: Spectrum to fit.
-            weights: Weights for spec.
-            valid: Valid pixel mask for spec.
-            mult_poly: Multiplicative polynomial.
 
         Returns:
             Model for given parameters.
@@ -328,8 +326,8 @@ class ParamsFit(MainRoutine):
             tell = self._tellurics()
 
             # resample to same wavelength grid as spec
-            tell.mode(spec.wave_mode)
-            tell = tell.resample(spec=spec)
+            tell.mode(self._spec.wave_mode)
+            tell = tell.resample(spec=self._spec)
 
         # get models for all components
         models = []
@@ -338,8 +336,8 @@ class ParamsFit(MainRoutine):
             m = cmp()
 
             # resample to same wavelength grid as spec
-            m.mode(spec.wave_mode)
-            m = m.resample(spec=spec)
+            m.mode(self._spec.wave_mode)
+            m = m.resample(spec=self._spec)
 
             # multiply tellurics, if necessary
             if tell is not None:
@@ -351,11 +349,11 @@ class ParamsFit(MainRoutine):
         # weight components
         if len(self._cmps) == 1:
             # get points that are valid in both model and spectrum
-            v = valid & ~np.isnan(models[0].flux)
+            v = self._valid & ~np.isnan(models[0].flux)
 
             # if we only have one component, it's easy :-)
-            a = models[0].flux[v] * mult_poly[v]
-            b = spec.flux[v] * weights[v]
+            a = models[0].flux[v] * self._mult_poly[v]
+            b = self._spec.flux[v] * self._weight[v]
             self._cmps[0].weight = (a * b).sum() / (a * a).sum()
         else:
             self._fit_component_weights(models)
@@ -367,14 +365,14 @@ class ParamsFit(MainRoutine):
             model.flux += models[i].flux * self._cmps[i].weight
 
         # calculate new multiplicative poly
-        mult_poly[:] = self._calculate_mult_poly(spec, model, valid)
+        self._mult_poly = self._calculate_mult_poly(model)
 
         # multiply continuum
-        model.flux *= mult_poly
+        model.flux *= self._mult_poly
 
         # divide continuum by mean
-        cont_mean = np.mean(mult_poly)
-        mult_poly /= cont_mean
+        cont_mean = np.mean(self._mult_poly)
+        self._mult_poly /= cont_mean
 
         # multiply weights with mean
         for cmp in self._cmps:
@@ -383,13 +381,15 @@ class ParamsFit(MainRoutine):
         # return model
         return model
 
-    def _calculate_mult_poly(self, spec, model, valid):
+    def _calculate_mult_poly(self, model):
         # create Legendre fitter
         # obviously the Legendre module automatically maps the x values to the range -1..1
-        leg = np.polynomial.Legendre.fit(spec.wave[valid], spec.flux[valid] / model.flux[valid], deg=self._poly_degree)
+        leg = np.polynomial.Legendre.fit(self._spec.wave[self._valid],
+                                         self._spec.flux[self._valid] / model.flux[self._valid],
+                                         deg=self._poly_degree)
 
         # return new polynomial
-        return leg(spec.wave)
+        return leg(self._spec.wave)
 
     def _fit_component_weights(self, models: List[Spectrum]):
         """In case we got more than one model, we need to weight them.
@@ -418,17 +418,13 @@ class ParamsFit(MainRoutine):
         for i, cmp in enumerate(self._cmps):
             cmp.weight = coeffs[i]
 
-    def _write_results_to_file(self, filename: str, spec: Spectrum, valid: np.ndarray, result: MinimizerResult,
-                               best_fit: Spectrum, mult_poly: np.ndarray, stats: dict):
+    def _write_results_to_file(self, filename: str, result: MinimizerResult, best_fit: Spectrum, stats: dict):
         """Writes results of fit back to file.
 
         Args:
             filename: Name of file to write results into.
-            spec: Spectrum that has been fitted.
-            valid: Mask of valid pixels.
             result: Result from optimization.
             best_fit: Best fit model.
-            mult_poly: Multiplicative polynomial.
             stats: Fit statistics.
         """
 
@@ -459,16 +455,16 @@ class ParamsFit(MainRoutine):
             # multiplicative polynomial
             if best_fit is not None:
                 fs.best_fit = best_fit
-                fs.residuals = spec.flux - best_fit.flux
-            fs.good_pixels = valid
-            fs.mult_poly = mult_poly
+                fs.residuals = self._spec.flux - best_fit.flux
+            fs.good_pixels = self._valid
+            fs.mult_poly = self._mult_poly
 
             # loop all components again to add spectra
             for cmp in self._cmps:
                 # get spectrum
                 tmp = cmp()
-                tmp.mode(spec.wave_mode)
-                tmp = tmp.resample(spec=spec)
+                tmp.mode(self._spec.wave_mode)
+                tmp = tmp.resample(spec=self._spec)
                 cmpspec = SpectrumFitsHDU(spec=tmp, primary=False)
 
                 # set it
@@ -477,8 +473,8 @@ class ParamsFit(MainRoutine):
             # tellurics spectrum
             if self._tellurics is not None:
                 tmp = self._tellurics()
-                tmp.mode(spec.wave_mode)
-                tmp = tmp.resample(spec=spec)
+                tmp.mode(self._spec.wave_mode)
+                tmp = tmp.resample(spec=self._spec)
                 tell = SpectrumFitsHDU(spec=tmp, primary=False)
 
                 # set it
