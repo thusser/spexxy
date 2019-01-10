@@ -146,3 +146,4 @@ def plot_spectrum(filename: str, results: bool = False, wave_range: list = None)
 
     # title
     fig.text(0.5, 0.97, fs.filename, ha='center', size=16)
+    return fig
