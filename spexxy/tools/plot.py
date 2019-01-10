@@ -147,6 +147,10 @@ def plot_spectrum(spec, model: 'Spectrum' = None, residuals: np.ndarray = None, 
                     # mark area
                     ax.axvspan(start - spec.wave_step / 2., spec.wave[x], color='#F7977A', zorder=10, alpha=0.5)
                     start = None
+            if start is not None:
+                # mark area
+                ax.axvspan(start - spec.wave_step / 2., spec.wave[x], color='#F7977A', zorder=10, alpha=0.5)
+                start = None
 
     # title
     if title is not None:
