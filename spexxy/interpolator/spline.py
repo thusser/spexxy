@@ -136,7 +136,6 @@ class SplineInterpolator(Interpolator):
                         pass
 
             # calculate 2nd derivatives
-            print(x, y)
             y2 = self._spline(x, y)
 
             # set them
