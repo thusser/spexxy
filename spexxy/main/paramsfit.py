@@ -1,18 +1,19 @@
-import sys
 import lmfit
 import numpy as np
 import scipy.linalg
 from lmfit import Parameters
 from lmfit.minimizer import MinimizerResult
 from typing import List
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
 
 from spexxy.data import FitsSpectrum, Spectrum
 from spexxy.component import Component
 from spexxy.mask import Mask
 from spexxy.weight import Weight
 from spexxy.data import SpectrumFitsHDU
-from spexxy.object import spexxyObject
 from .main import MainRoutine
+from spexxy.tools.plot import plot_spectrum
 
 
 class ParamsFit(MainRoutine):
@@ -23,7 +24,8 @@ class ParamsFit(MainRoutine):
     def __init__(self, components: List[Component] = None, tellurics: Component = None, masks: List[Mask] = None,
                  weights: List[Weight] = None, fixparams: List[str] = None, poly_degree: int = 40,
                  maxfev: int = 500, ftol: float = 1.49012e-08, xtol: float = 1.49012e-08,
-                 factor: float = 100.0, epsfcn: float = 1e-7, min_valid_pixels: float = 0.5, *args, **kwargs):
+                 factor: float = 100.0, epsfcn: float = 1e-7, min_valid_pixels: float = 0.5,
+                 plot_iterations: bool = False, *args, **kwargs):
         """Initialize a new ParamsFit object
 
         Args:
@@ -40,6 +42,7 @@ class ParamsFit(MainRoutine):
             epsfcn: A variable used in determining a suitable step length for the forward- difference approximation of
                 the Jacobian (see scipy documentation)
             min_valid_pixels: Fraction of minimum number of required pixels to continue with fit.
+            plot_iterations: Plot all iterations into a PDF file.
         """
         MainRoutine.__init__(self, *args, **kwargs)
 
@@ -58,8 +61,15 @@ class ParamsFit(MainRoutine):
         self._valid = None
         self._weight = None
 
+        # model
+        self._model = None
+
         # polynomial
         self._mult_poly = None
+
+        # iterations PDF?
+        self._plot_iterations = plot_iterations
+        self._iterations_pdf = None
 
         # find components
         self._cmps = self.get_objects(components, Component, 'components')
@@ -155,6 +165,10 @@ class ParamsFit(MainRoutine):
         for cmp in self.components:
             params += cmp.make_params()
 
+        # open PDF
+        if self._plot_iterations:
+            self._iterations_pdf = PdfPages(filename.replace('.fits', '.pdf'))
+
         # start minimization
         self.log.info('Starting fit...')
         minimizer = lmfit.Minimizer(self._fit_func, params,
@@ -163,11 +177,15 @@ class ParamsFit(MainRoutine):
         result = minimizer.leastsq()
         self.log.info('Finished fit.')
 
+        # close PDF file
+        if self._plot_iterations:
+            self._iterations_pdf.close()
+
         # get best fit
-        best_fit = self._model(result.params)
+        best_fit = self._get_model(result.params)
 
         # estimate SNR
-        snr = None if best_fit is None else spec.estimate_snr(best_fit)
+        snr = None if best_fit is None else self._spec.estimate_snr(best_fit)
         self.log.info('Estimated S/N of %.2f.', snr)
 
         # successful, if minimization was a success
@@ -268,11 +286,42 @@ class ParamsFit(MainRoutine):
             if len(values) > 0:
                 messages.append('%s(%s)' % (cmp.prefix, ', '.join(values)))
 
-        # add rms
-        messages.append('rms=%f' % np.sum(resid * resid))
+        # plot spectrum
+        if self._iterations_pdf is not None:
+            self._plot_spectrum(params, iter)
 
         # log it
         self.log.info('(%3d) %s' % (iter, ', '.join(messages)))
+
+    def _plot_spectrum(self, params: Parameters, iter: int):
+        """Plot the current iteration.
+
+        Args:
+            params: Current parameter values.
+            iter: Current iteration.
+        """
+
+        # build text
+        text = 'Iteration %d\n===============\n' % iter
+
+        # loop components and add current values
+        for cmp in self._cmps + ([self._tellurics] if self._tellurics else []):
+            text += '\n%s:\n' % cmp.prefix
+            for name in cmp.param_names:
+                param = params[cmp.prefix + name]
+                text += '%10s = %.2f\n' % (name, param.value)
+
+        # calculate chi2
+        chi2 = np.sum(np.power(self._spec.flux - self._model.flux, 2) * self._weight)
+        text += '\nchi2 = %g\n' % chi2
+
+        # do the plot
+        fig = plot_spectrum(self._spec, model=self._model, residuals=self._spec.flux - self._model.flux,
+                            valid=self._valid, title='Iteration %d' % iter, text=text)
+
+        # store and close it
+        self._iterations_pdf.savefig(fig)
+        plt.close()
 
     def _fit_func(self, params: Parameters) -> np.ndarray:
         """Fit function for LM optimization
@@ -286,14 +335,14 @@ class ParamsFit(MainRoutine):
 
         # evaluate params
         try:
-            model = self._model(params)
+            self._model = self._get_model(params)
         except KeyError:
             #a = np.ones((len(spec))) * sys.float_info.max
             #log.error('Could not interpolate model.')
             return np.ones((len(self._spec))) * 1e100
 
         # calc residuals
-        res = (model.flux - self._spec.flux) * self._weight
+        res = (self._model.flux - self._spec.flux) * self._weight
 
         # replace nans by zeros
         res[np.isnan(res)] = 0
@@ -301,7 +350,7 @@ class ParamsFit(MainRoutine):
         # return residuals
         return res
 
-    def _model(self, params: Parameters) -> Spectrum:
+    def _get_model(self, params: Parameters) -> Spectrum:
         """Returns the model for the given parameters.
 
         Args:
