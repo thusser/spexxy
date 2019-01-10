@@ -461,7 +461,7 @@ class ParamsFit(MainRoutine):
             mat[:, k] = models[k].flux[valid]
 
         # fit
-        coeffs = scipy.linalg.lstsq(mat, spec.flux[valid])[0]
+        coeffs = scipy.linalg.lstsq(mat, self._spec.flux[valid])[0]
 
         # set weights
         for i, cmp in enumerate(self._cmps):
