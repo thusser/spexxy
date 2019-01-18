@@ -167,7 +167,7 @@ class ParamsFit(MainRoutine):
         # less than 50% of pixels valid?
         if np.sum(self._valid) < self._min_valid_pixels * len(self._valid):
             self.log.warning('Less then %d percent of pixels valid, skipping...', self._min_valid_pixels * 100)
-            return [None] * len(self.columns())
+            return [None] * (len(self.columns()) - 1) + [False]
 
         # initialize multiplicative polynomial with ones
         self._mult_poly = np.ones((len(self._spec)))
