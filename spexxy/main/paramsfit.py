@@ -105,6 +105,18 @@ class ParamsFit(MainRoutine):
         # finished
         return params
 
+    def columns(self) -> List[str]:
+        """Get list of columns returned by __call__.
+
+        The returned list shoud include the list from parameters().
+
+        Returns:
+            List of columns returned by __call__.
+        """
+
+        # call base and add columns Success
+        return MainRoutine.columns(self) + ['Success']
+
     @property
     def components(self) -> List[Component]:
         """Returns all components used in this fit.
@@ -155,7 +167,7 @@ class ParamsFit(MainRoutine):
         # less than 50% of pixels valid?
         if np.sum(self._valid) < self._min_valid_pixels * len(self._valid):
             self.log.warning('Less then %d percent of pixels valid, skipping...', self._min_valid_pixels * 100)
-            return [None] * len(self.parameters()) * 2
+            return [None] * len(self.columns())
 
         # initialize multiplicative polynomial with ones
         self._mult_poly = np.ones((len(self._spec)))
@@ -232,11 +244,12 @@ class ParamsFit(MainRoutine):
         for cmp in self._cmps:
             for n in cmp.param_names:
                 p = '%s%s' % (cmp.prefix, n)
-                results.extend([result.params[p].value, result.params[p].stderr])
+                results += [result.params[p].value, result.params[p].stderr]
         if self._tellurics is not None:
             for n in self._tellurics.param_names:
                 p = '%s%s' % (self._tellurics.prefix, n)
-                results.extend([result.params[p].value, result.params[p].stderr])
+                results += [result.params[p].value, result.params[p].stderr]
+        results += [success]
         return results
 
     def _load_spectrum(self, filename: str) -> (Spectrum, np.ndarray):

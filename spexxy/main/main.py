@@ -18,6 +18,21 @@ class MainRoutine(spexxyObject):
         """
         return []
 
+    def columns(self) -> List[str]:
+        """Get list of columns returned by __call__.
+
+        The returned list shoud include the list from parameters().
+
+        Returns:
+            List of columns returned by __call__.
+        """
+
+        # build list of columns from parameters
+        columns = []
+        for p in self.parameters():
+            columns += [p.upper(), p.upper() + ' ERR']
+        return columns
+
     def __call__(self, filename: str) -> List[float]:
         """Start the routine on the given file.
 

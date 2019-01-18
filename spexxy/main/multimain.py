@@ -43,10 +43,27 @@ class MultiMain(MainRoutine):
         # get all parameters
         parameters = []
         for routine in self._routines:
-            parameters.extend(routine.parameters())
+            parameters += routine.parameters()
 
         # make unique and sort
         return sorted(list(set(parameters)))
+
+    def columns(self) -> List[str]:
+        """Get list of columns returned by __call__.
+
+        The returned list shoud include the list from parameters().
+
+        Returns:
+            List of columns returned by __call__.
+        """
+
+        # get all columns
+        columns = []
+        for routine in self._routines:
+            columns += routine.parameters()
+
+        # make unique and sort
+        return sorted(list(set(columns)))
 
     def __call__(self, filename: str) -> List[float]:
         """Process the given file.
