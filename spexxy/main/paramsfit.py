@@ -16,6 +16,86 @@ from .main import MainRoutine
 from spexxy.tools.plot import plot_spectrum
 
 
+class Legendre:
+    """Calculate 'continuum' between a given spectrum and a model as a
+    linear combination of Legendre polynomials."""
+
+    def __init__(self, model, degree):
+        """Initialize continuum fitter.
+
+        :param model:   Model to use for deriving the continuum.
+        :param degree:  Degree of Legendre polynomial to use.
+        """
+
+        # store variables
+        self.model = model
+        self.degree = degree
+        self.coefficients = None
+        self.mean = None
+        self.values = np.ones((len(model)))
+
+        # get wavelength array of model and normalize it to range -1..1
+        # since we don't have mask here yet, this gets a little more complicated...
+        wave = self.model.wave
+        x = (wave - 0.5 * (wave[0] + wave[-1])) / 2.
+        x /= np.max(np.abs(x[~np.isnan(x)]))
+
+        # create Legendre polynomials
+        # need to add 1 to polynomials to avoid zero points
+        self._legendre = np.zeros((len(x), degree))
+        for k in range(degree):
+            self._legendre[~np.isnan(x), k] = scipy.special.legendre(k)(x[~np.isnan(x)]) + 1.
+
+    def __call__(self, spec, valid=None, norm_to_mean=True):
+        """Calculate the continuum.
+        Effectively we're searching for the best coefficients c that
+        fulfil S=c*A, where S is the flux of the spectrum and A is the
+        matrix multiplication of all Legendre polynomials with the flux M of
+        the model, i.e. A=L*M.t, where * denotes the matrix multiplication and
+        M.t is the transposed of M.
+
+        :param spec:    Spectrum to calculate continuum for.
+        :param valid:   Array containing valid pixels in spectrum.
+        :return:        numpy array containing continuum.
+        """
+
+        # check length
+        if len(spec) != self._legendre.shape[0]:
+            raise ValueError('Data length must be equal to initial data '
+                             'length.')
+
+        # valid
+        if valid is None:
+            valid = ~np.isnan(spec.flux)
+
+        # add invalid model values to mask
+        v = valid & ~np.isnan(self.model.flux)
+
+        # fill matrix A as a matrix multiplication of L and the transposed
+        # flux of the model
+        A = np.empty((len(spec.flux[v]), self.degree))
+        for k in range(self.degree):
+            A[:, k] = spec.flux[v] * self._legendre[v, k]
+
+        # solve, i.e. find best coefficients c for S=c*A
+        self.coefficients = scipy.linalg.lstsq(A, self.model.flux[v])[0]
+
+        # evaluate continuum
+        self.values = np.dot(self._legendre, self.coefficients)
+
+        # normalize to mean?
+        if norm_to_mean:
+            # divide evaluated polynomial by mean
+            self.mean = self.values.mean()
+            self.values /= self.mean
+
+            # also divide first coefficient by mean
+            self.coefficients[0] /= self.mean
+
+        # return values
+        return self.values
+
+
 class ParamsFit(MainRoutine):
     """ParamsFit is a fitting routine for spexxy that uses a Levenberg-Marquardt optimization to fit a set of
     model spectra (components) to a given spectrum.
@@ -170,7 +250,7 @@ class ParamsFit(MainRoutine):
             return [None] * (len(self.columns()) - 1) + [False]
 
         # initialize multiplicative polynomial with ones
-        self._mult_poly = np.ones((len(self._spec)))
+        self._mult_poly = Legendre(self._spec, self._poly_degree)
 
         # get parameters
         params = Parameters()
@@ -299,6 +379,11 @@ class ParamsFit(MainRoutine):
             if len(values) > 0:
                 messages.append('%s(%s)' % (cmp.prefix, ', '.join(values)))
 
+        # calculate chi2
+        chi2 = np.sum(np.power(self._spec.flux[self._valid] - self._model.flux[self._valid], 2)
+                      * self._weight[self._valid])
+        messages += ['chi2=%.5g' % chi2]
+
         # plot spectrum
         if self._iterations_pdf is not None:
             self._plot_spectrum(params, iter)
@@ -325,7 +410,8 @@ class ParamsFit(MainRoutine):
                 text += '%10s = %.2f\n' % (name, param.value)
 
         # calculate chi2
-        chi2 = np.sum(np.power(self._spec.flux - self._model.flux, 2) * self._weight)
+        chi2 = np.sum(np.power(self._spec.flux[self._valid] - self._model.flux[self._valid], 2)
+                      * self._weight[self._valid])
         text += '\nchi2 = %g\n' % chi2
 
         # do the plot
@@ -355,10 +441,7 @@ class ParamsFit(MainRoutine):
             return np.ones((len(self._spec))) * 1e100
 
         # calc residuals
-        res = (self._model.flux - self._spec.flux) * self._weight
-
-        # replace nans by zeros
-        res[np.isnan(res)] = 0
+        res = (self._model.flux[self._valid] - self._spec.flux[self._valid]) * self._weight[self._valid]
 
         # return residuals
         return res
@@ -414,7 +497,8 @@ class ParamsFit(MainRoutine):
             v = self._valid & ~np.isnan(models[0].flux)
 
             # if we only have one component, it's easy :-)
-            a = models[0].flux[v] * self._mult_poly[v]
+            #a = models[0].flux[v] * self._mult_poly[v]
+            a = models[0].flux[v] * self._mult_poly.values[v]
             b = self._spec.flux[v] * self._weight[v]
             self._cmps[0].weight = (a * b).sum() / (a * a).sum()
         else:
@@ -426,19 +510,17 @@ class ParamsFit(MainRoutine):
         for i in range(1, len(self._cmps)):
             model.flux += models[i].flux * self._cmps[i].weight
 
-        # calculate new multiplicative poly
-        self._mult_poly = self._calculate_mult_poly(model)
-
-        # multiply continuum
-        model.flux *= self._mult_poly
-
-        # divide continuum by mean
-        cont_mean = np.mean(self._mult_poly)
-        self._mult_poly /= cont_mean
+        # multiplicative poly
+        cont = self._mult_poly(model, self._valid)
+        cont_mean = self._mult_poly.mean
 
         # multiply weights with mean
-        for cmp in self._cmps:
-            cmp.weight /= cont_mean
+        for c in self._cmps:
+            c.weight /= cont_mean
+
+        # multiply continuum
+        model.flux *= cont
+        model.flux *= cont_mean
 
         # return model
         return model
@@ -519,7 +601,7 @@ class ParamsFit(MainRoutine):
                 fs.best_fit = best_fit
                 fs.residuals = self._spec.flux - best_fit.flux
             fs.good_pixels = self._valid
-            fs.mult_poly = self._mult_poly
+            fs.mult_poly = self._mult_poly.values
 
             # loop all components again to add spectra
             for cmp in self._cmps:
