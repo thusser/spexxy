@@ -380,9 +380,11 @@ class ParamsFit(MainRoutine):
                 messages.append('%s(%s)' % (cmp.prefix, ', '.join(values)))
 
         # calculate chi2
-        chi2 = np.sum(np.power(self._spec.flux[self._valid] - self._model.flux[self._valid], 2)
-                      * self._weight[self._valid])
-        messages += ['chi2=%.5g' % chi2]
+        sumsq = np.sum(((self._spec.flux[self._valid] - self._model.flux[self._valid])
+                        * self._weight[self._valid])**2)
+        chi2 = np.sum(((self._spec.flux[self._valid] - self._model.flux[self._valid])**2
+                       / self._model.flux[self._valid]))
+        messages += ['sqsum=%.5g' % sumsq, 'chi2=%.5g' % chi2]
 
         # plot spectrum
         if self._iterations_pdf is not None:
