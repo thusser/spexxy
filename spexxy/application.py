@@ -35,13 +35,8 @@ class Application(object):
         log.info('Initializing main routine...')
         main = spexxyObject.create_object(self._config['main'], objects=objects, log=log)
 
-        # get parameters
-        params = main.parameters()
-
-        # build list of columns
-        columns = []
-        for p in params:
-            columns.extend([p.upper(), p.upper() + ' ERR'])
+        # get columns
+        columns = main.columns()
 
         # output csv?
         if output is not None:
@@ -158,7 +153,7 @@ class Application(object):
 
                 # write results
                 if len(results) > 0:
-                    f.write(',' + ','.join([str(r) for r in results]))
+                    f.write(',' + ','.join(['' if r is None else str(r) for r in results]))
 
                 # write line break
                 f.write('\n')

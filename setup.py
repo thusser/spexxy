@@ -9,7 +9,7 @@ setup(
     author='Tim-Oliver Husser',
     author_email='thusser@uni-goettingen.de',
     packages=find_packages(include=['spexxy', 'spexxy.*']),
-    scripts=['bin/spexxy'],
+    scripts=['bin/spexxy', 'bin/spexxytools'],
     include_package_data=True,
     requires=['scipy', 'numpy', 'astropy', 'pandas', 'lmfit']
 )

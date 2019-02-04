@@ -1,16 +1,5 @@
-import sys
-import lmfit
-import numpy as np
-import scipy.linalg
-from lmfit import Parameters
-from lmfit.minimizer import MinimizerResult
 from typing import List
 
-from spexxy.data import FitsSpectrum, Spectrum
-from spexxy.component import Component
-from spexxy.mask import Mask
-from spexxy.weight import Weight
-from spexxy.data import SpectrumFitsHDU
 from spexxy.object import spexxyObject
 
 
@@ -28,6 +17,21 @@ class MainRoutine(spexxyObject):
             List of parameter names (including prefix) fitted by this routine.
         """
         return []
+
+    def columns(self) -> List[str]:
+        """Get list of columns returned by __call__.
+
+        The returned list shoud include the list from parameters().
+
+        Returns:
+            List of columns returned by __call__.
+        """
+
+        # build list of columns from parameters
+        columns = []
+        for p in self.parameters():
+            columns += [p.upper(), p.upper() + ' ERR']
+        return columns
 
     def __call__(self, filename: str) -> List[float]:
         """Start the routine on the given file.

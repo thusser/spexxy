@@ -7,15 +7,15 @@ import pandas as pd
 import numpy as np
 
 
-def bulk_read_header(folder: str, keys: Union[str, List[str]], pattern: str = '*.fits', chunksize: int = 10000) \
-        -> pd.DataFrame:
+def bulk_read_header(folder_or_files: Union[str, List], keys: Union[str, List[str]], pattern: str = '*.fits',
+                     chunksize: int = 10000) -> pd.DataFrame:
     """
     A wrapper around the dfits/fitsort command-line tools to query a list of
     FITS-files for one or more header keywords and store their values in a
     pandas DataFrame.
 
     Args:
-        folder: The folder to work in.
+        folder_or_files: List of files or the folder to work in.
         keys: The header keyword(s) that should be queried.
         pattern: A common pattern by which the input FITS-files can be recognized.
         chunksize: Maximum number of files to process per system call.
@@ -29,7 +29,14 @@ def bulk_read_header(folder: str, keys: Union[str, List[str]], pattern: str = '*
     """
 
     # get list of files
-    files = [os.path.split(f)[1] for f in glob.glob(os.path.join(folder, pattern))]
+    if isinstance(folder_or_files, str):
+        files = [os.path.split(f)[1] for f in glob.glob(os.path.join(folder_or_files, pattern))]
+        folder = folder_or_files
+    elif isinstance(folder_or_files, list):
+        files = folder_or_files
+        folder = os.path.abspath(os.path.dirname(files[0]))
+    else:
+        raise ValueError('Unknown format.')
 
     # no chunksize given?
     if chunksize is None:

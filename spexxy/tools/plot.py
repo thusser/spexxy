@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
+from matplotlib import gridspec
 import numpy as np
 
 from spexxy.data import FitsSpectrum
@@ -37,11 +38,22 @@ def plot(spectra: list, output: str = None, results: bool = False, range: list =
 
     # loop spectra
     for filename in sorted(spectra):
-        # init figure
-        print(filename)
+        # load spectrum
+        with FitsSpectrum(filename) as fs:
+            # get spectrum
+            spec = fs['NORMALIZED'] if 'NORMALIZED' in fs and results else fs.spectrum
+
+            # and model
+            model = fs.best_fit if results else None
+
+            # get residuals
+            residuals = fs.residuals if results else None
+
+            # good pixels
+            valid = fs.good_pixels
 
         # plot
-        plot_spectrum(filename, results=results, wave_range=range)
+        plot_spectrum(spec, model, residuals, valid, wave_range=range, title=fs.filename)
 
         # show
         if output:
@@ -55,35 +67,28 @@ def plot(spectra: list, output: str = None, results: bool = False, range: list =
         pdf.close()
 
 
-def plot_spectrum(filename: str, results: bool = False, wave_range: list = None):
-    try:
-        with FitsSpectrum(filename) as fs:
-            # get header
-            hdr = fs.header
+def plot_spectrum(spec, model: 'Spectrum' = None, residuals: np.ndarray = None, valid: np.ndarray = None,
+                  wave_range: list = None, text: str = None, text_width: float = 0.3, title: str = None):
+    # specify grid
+    fig = plt.figure(figsize=(11.69, 8.27))
+    gs = gridspec.GridSpec(2, 1, figure=fig, height_ratios=[3, 1])
+    gs.update(wspace=0., hspace=0., left=0.09, right=0.99, top=0.95, bottom=0.08)
 
-            # get spectrum
-            spec = fs['NORMALIZED'] if 'NORMALIZED' in fs and results else fs.spectrum
+    # adjust top to allow for a title
+    if title is not None:
+        gs.update(top=0.92)
 
-            # and model
-            model = fs.best_fit if results else None
-
-            # get residuals
-            residuals = fs.residuals if results else None
-
-            # good pixels
-            valid = fs.good_pixels
-
-    except AttributeError:
-        return None
+    # adjust right to allow for some text
+    if text is not None:
+        gs.update(right=1.0 - text_width)
 
     # create figure and axes
-    if results:
-        fig, (ax_spectrum, ax_residuals) = plt.subplots(figsize=(11.69, 8.27), nrows=2, sharex=True,
-                                                        gridspec_kw={'height_ratios': [3, 1]})
-        fig.subplots_adjust(hspace=0)
-    else:
-        fig, ax_spectrum = plt.subplots(figsize=(11.69, 8.27))
+    if residuals is None:
+        ax_spectrum = plt.subplot(gs[:, 0])
         ax_residuals = None
+    else:
+        ax_spectrum = plt.subplot(gs[0, 0])
+        ax_residuals = plt.subplot(gs[1, 0], sharex=ax_spectrum)
 
     # plot spectrum
     ax_spectrum.plot(spec.wave, spec.flux, ls="-", lw=1., c="k", marker="None")
@@ -97,12 +102,11 @@ def plot_spectrum(filename: str, results: bool = False, wave_range: list = None)
     # legend
     ax_spectrum.plot([0], [0], c='#F7977A')
     ax_spectrum.plot([0], [0], c='b')
-    ax_spectrum.legend(["Observation", "Model", "Mask", "Residuals"] if results else ["Observation", "Mask"],
-                       bbox_to_anchor=(0., 1.02, 1., .102), loc=3,
-                       ncol=4, mode="expand", borderaxespad=0.)
+    labels = ["Observation", "Model", "Mask", "Residuals"] if ax_residuals is not None else ["Observation", "Mask"]
+    ax_spectrum.legend(labels, bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=4, mode="expand", borderaxespad=0.)
 
     # residuals
-    if results:
+    if ax_residuals is not None:
         ax_residuals.plot(spec.wave, residuals, ls="-", lw=1., c="b", marker="None")
         ax_residuals.set_xlabel(r"$\mathrm{Wavelength}\ \lambda\,[\mathrm{\AA}]$", fontsize=20)
         ax_residuals.set_ylabel('Residuals', fontsize=20)
@@ -124,7 +128,7 @@ def plot_spectrum(filename: str, results: bool = False, wave_range: list = None)
     ax_spectrum.set_ylim((np.nanmin(tmp), np.nanmax(tmp)))
 
     # and for the residuals
-    if results:
+    if ax_residuals is not None:
         tmp = residuals[w]
         ax_residuals.set_ylim((np.nanmin(tmp), np.nanmax(residuals)))
 
@@ -143,6 +147,17 @@ def plot_spectrum(filename: str, results: bool = False, wave_range: list = None)
                     # mark area
                     ax.axvspan(start - spec.wave_step / 2., spec.wave[x], color='#F7977A', zorder=10, alpha=0.5)
                     start = None
+            if start is not None:
+                # mark area
+                ax.axvspan(start - spec.wave_step / 2., spec.wave[x], color='#F7977A', zorder=10, alpha=0.5)
+                start = None
 
     # title
-    fig.text(0.5, 0.97, fs.filename, ha='center', size=16)
+    if title is not None:
+        fig.text(0.5, 0.97, title, ha='center', size=16)
+
+    # add text
+    fig.text(1.0 - text_width + 0.02, 0.9, text, family='monospace', va='top', ha='left')
+
+    # finished
+    return fig

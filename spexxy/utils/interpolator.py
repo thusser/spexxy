@@ -30,14 +30,14 @@ def create_interpolator(definition: str, logger: logging.Logger = None) -> Inter
             logger.info("Loading ulyss interpolator {0:s}.".format(s[1]))
         return interpolator.UlyssInterpolator(s[1])
 
-    elif s[0].lower() == 'phoenix':
+    elif s[0].lower() == 'files':
         # further split is by ','
         t = s[1].split(',')
 
         # load grid
         if logger:
             logger.info('Loading phoenix grid {0:s}.'.format(t[0]))
-        phxgrid = grid.PhoenixGrid(t[0])
+        phxgrid = grid.FilesGrid(t[0])
 
         # second option would be for the spline interpolator
         if len(t) == 2:
@@ -45,7 +45,7 @@ def create_interpolator(definition: str, logger: logging.Logger = None) -> Inter
             if t[1].lower() != 'none':
                 if logger:
                     logger.info('Loading phoenix derivatives grid {0:s}.'.format(t[1]))
-                derivs = grid.PhoenixGrid(t[1])
+                derivs = grid.FilesGrid(t[1])
             else:
                 if logger:
                     logger.warning('Using no pre-calculated derivatives.')
