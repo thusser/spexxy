@@ -1,3 +1,6 @@
+https://img.shields.io/travis/com/thusser/spexxy.svg?label=master%20build&style=flat
+https://img.shields.io/travis/com/thusser/spexxy/develop.svg?label=develop%20build&style=flat
+
 ## *spexxy*
 
 ```text
@@ -21,14 +24,6 @@ re-release.
 ### Documentation
 
 You can find the documentation for spexxy at <https://spexxy.readthedocs.io/>.
-
-
-### Build status
-
-| master  | develop |
-| --- | --- |
-| ![master build status](https://api.travis-ci.com/thusser/spexxy.svg?branch=master) | ![develop build status](https://api.travis-ci.com/thusser/spexxy.svg?branch=develop) |
-
 
 ### Versions
 See [Changelog](CHANGELOG.md).
