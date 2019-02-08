@@ -1,5 +1,7 @@
-https://img.shields.io/travis/com/thusser/spexxy.svg?label=master%20build&style=flat
-https://img.shields.io/travis/com/thusser/spexxy/develop.svg?label=develop%20build&style=flat
+<p align="center">
+<img src="https://img.shields.io/travis/com/thusser/spexxy.svg?label=master%20build&style=flat" alt="master build status">
+<img src="https://img.shields.io/travis/com/thusser/spexxy/develop.svg?label=develop%20build&style=flat" alt="develop build status">
+</p>
 
 ## *spexxy*
 
