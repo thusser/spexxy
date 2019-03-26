@@ -1229,7 +1229,7 @@ class SpectrumAscii(Spectrum):
     """Handles spectra stored in ASCII files."""
 
     def __init__(self, filename: str = None, separator: str = None, skip_lines: int = 0, comment: str = '#',
-                 *args, **kwargs):
+                 wave_column: int = 0, flux_column: int = 1, *args, **kwargs):
         """Reads spectrum from ASCII file.
 
         Args:
@@ -1261,8 +1261,8 @@ class SpectrumAscii(Spectrum):
                     if line[0] == comment:
                         continue
                     s = line.split(separator)
-                    wave.append(float(s[0]))
-                    flux.append(float(s[1]))
+                    wave.append(float(s[wave_column]))
+                    flux.append(float(s[flux_column]))
 
             # set everything
             self._wavelength = np.array(wave)
