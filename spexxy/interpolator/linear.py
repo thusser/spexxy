@@ -78,9 +78,9 @@ class LinearInterpolator(Interpolator):
             else:
                 return self._interpolate(tuple(params), axis - 1)
 
-        # find the next lower and the next higher axis value
-        p_lower = self._grid.neighbour(tuple(params), axis, 0)
-        p_higher = self._grid.neighbour(tuple(params), axis, 1)
+        # on the last axis we enforce that the neighbour must exist
+        p_lower = self._grid.neighbour(tuple(params), axis, 0, must_exist=axis == 0)
+        p_higher = self._grid.neighbour(tuple(params), axis, 1, must_exist=axis == 0)
         if p_lower is None or p_higher is None:
             raise KeyError('No direct neighbours found in grid.')
 
