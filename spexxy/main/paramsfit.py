@@ -434,19 +434,20 @@ class ParamsFit(MainRoutine):
             Weights scaled residuals between spec and model.
         """
 
-        # evaluate params
+
         try:
+            # evaluate params
             self._model = self._get_model(params)
+
+            # calc residuals
+            return (self._model.flux[self._valid] - self._spec.flux[self._valid]) * self._weight[self._valid]
+
         except KeyError:
-            #a = np.ones((len(spec))) * sys.float_info.max
-            #log.error('Could not interpolate model.')
+            # could not interpolate
+            self.log.exception('Could not interpolate model.')
+            self._model = Spectrum(spec=self._spec)
+            self._model.flux[:] = 0
             return np.ones((len(self._spec))) * 1e100
-
-        # calc residuals
-        res = (self._model.flux[self._valid] - self._spec.flux[self._valid]) * self._weight[self._valid]
-
-        # return residuals
-        return res
 
     def _get_model(self, params: Parameters) -> Spectrum:
         """Returns the model for the given parameters.

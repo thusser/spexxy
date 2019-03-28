@@ -151,15 +151,16 @@ class Grid(spexxyObject):
         data *= 0.
         return data
 
-    def neighbour(self, params: Tuple, axis: int, distance: int=1) -> Tuple:
+    def neighbour(self, params: Tuple, axis: int, distance: int=1, must_exist: bool = False) -> Tuple:
         """Finds a neighbour on the given axis for the given value in the given distance.
 
         Args:
-            params: Paremeter tuple to search neighbour from.
+            params: Parameter tuple to search neighbour from.
             axis: Axis to search for
             distance: Distance in which to find neighbour.
                 >0:  Find larger neighbours, i.e. 0 next larger value, 1 the one after that, etc
                 <=0:  Find smaller neighbouars, i.e. 0 next smaller value (or value itself), -1 the before that, etc
+            must_exist: Grid point with new parameter set must actually exist.
 
         Returns:
             New parameter tuple with neighbour on the given axis.
@@ -173,7 +174,35 @@ class Grid(spexxyObject):
         # create new tuple
         p = list(params)
         p[axis] = value
-        return tuple(p)
+
+        # if we don't enforce it to exist, or if it does exist, we finish here
+        if not must_exist or self.__contains__(tuple(p)):
+            return tuple(p)
+
+        # grid point does not exist, get all axis values
+        axis_values = np.array(self._axes[axis].values)
+
+        # lower or higher values?
+        if distance == 0:
+            # larger values
+            axis_values = sorted(axis_values[axis_values > params[axis]], reverse=False)
+        else:
+            # smaller values
+            axis_values = sorted(axis_values[axis_values < params[axis]], reverse=True)
+
+        # find parameter set that exists
+        for v in axis_values:
+            # set value
+            p[axis] = v
+
+            # check it
+            if self.__contains__(tuple(p)):
+                # exists, return it
+                return tuple(p)
+
+        else:
+            # nothing found
+            return None
 
     def nearest(self, params, scales=None) -> Tuple:
         """Finds the nearest point within the grid.
