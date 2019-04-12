@@ -364,8 +364,10 @@ class Spectrum(object):
 
         # interpolate
         if not flux_conserve:
-            # do interpolation
-            if linear:
+            # do interpolation, force linear if less than 3 points, return Nones if less than 2 points
+            if len(spec) < 2 or len(wave) < 2:
+                return [None] * len(wave)
+            elif linear or len(spec) < 3:
                 # interpolate linearly
                 interpol_flux = interp1d(x=spec.wave, y=spec.flux, kind='linear',
                                          bounds_error=False, fill_value=fill_value)
