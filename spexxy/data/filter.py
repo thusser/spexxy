@@ -66,6 +66,7 @@ class Filter(object):
 
         # copy data
         f.filter_name = self.filter_name
+        f._filter_filename = self._filter_filename
         f._throughput = self._throughput.copy() if self.throughput is not None else None
         f._vega = self._vega.copy() if self._vega is not None else None
         f._vega_throughput = self._vega_throughput.copy() if self._vega_throughput is not None else None
