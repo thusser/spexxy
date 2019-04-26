@@ -6,6 +6,7 @@ from lmfit.minimizer import MinimizerResult
 from typing import List
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
+import pandas as pd
 
 from spexxy.data import FitsSpectrum, Spectrum
 from spexxy.component import Component
@@ -442,7 +443,7 @@ class ParamsFit(MainRoutine):
             # calc residuals
             return (self._model.flux[self._valid] - self._spec.flux[self._valid]) * self._weight[self._valid]
 
-        except KeyError:
+        except (KeyError, pd.core.indexing.IndexingError):
             # could not interpolate
             self.log.exception('Could not interpolate model.')
             self._model = Spectrum(spec=self._spec)
@@ -461,6 +462,7 @@ class ParamsFit(MainRoutine):
 
         Raises:
             KeyError: Forwarded from grid/interpolator access.
+            pd.core.indexing.IndexingError: Forwarded from grid/interpolator access.
         """
 
         # parse params
