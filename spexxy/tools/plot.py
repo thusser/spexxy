@@ -130,7 +130,7 @@ def plot_spectrum(spec, model: 'Spectrum' = None, residuals: np.ndarray = None, 
     # and for the residuals
     if ax_residuals is not None:
         tmp = residuals[w]
-        ax_residuals.set_ylim((np.nanmin(tmp), np.nanmax(residuals)))
+        ax_residuals.set_ylim((np.nanmin(tmp), np.nanmax(tmp)))
 
     # ticks and other stuff
     for ax in [ax_spectrum, ax_residuals]:
