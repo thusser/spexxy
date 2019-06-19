@@ -61,6 +61,17 @@ class FilesGrid(Grid):
         """
         return tuple(params) in self._data.index
 
+    def filename(self, params: Tuple) -> str:
+        """Returns filename for given parameter set.
+
+        Args:
+            params: Parameter set to catch value for.
+
+        Returns:
+            Filename.
+        """
+        return self._data.loc[tuple(params)].Filename
+
     def __call__(self, params: Tuple) -> Any:
         """Fetches the value for the given parameter set.
 
