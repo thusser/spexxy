@@ -630,7 +630,8 @@ class ParamsFit(MainRoutine):
                 fs['TELLURICS'] = tell
 
             # covariance
-            fs.covar = result.covar
+            if hasattr(result, 'covar'):
+                fs.covar = result.covar
 
 
 __all__ = ['ParamsFit']
