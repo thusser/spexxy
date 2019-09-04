@@ -443,12 +443,12 @@ class ParamsFit(MainRoutine):
             # calc residuals
             return (self._model.flux[self._valid] - self._spec.flux[self._valid]) * self._weight[self._valid]
 
-        except (KeyError, pd.core.indexing.IndexingError):
+        except (KeyError, pd.core.indexing.IndexingError, ValueError):
             # could not interpolate
             self.log.exception('Could not interpolate model.')
             self._model = Spectrum(spec=self._spec)
             self._model.flux[:] = 0
-            return np.ones((len(self._spec))) * 1e100
+            return np.ones((len(self._spec.flux[self._valid]))) * 1e100
 
     def _get_model(self, params: Parameters) -> Spectrum:
         """Returns the model for the given parameters.
@@ -484,6 +484,10 @@ class ParamsFit(MainRoutine):
         for cmp in self._cmps:
             # evaluate model
             m = cmp()
+
+            # all invalid?
+            if len(m.flux) == len(m.flux[np.isnan(m.flux)]):
+                raise ValueError('All values NaN.')
 
             # resample to same wavelength grid as spec
             m.mode(self._spec.wave_mode)
