@@ -29,7 +29,7 @@ class SpectrumComponent(Component):
 
         # add losvd parameters
         self.set('v', min=-2000., max=2000., value=1.)
-        self.set('sig', min=0., max=100., value=10.)
+        self.set('sig', min=0., max=500., value=10.)
         if self._losvd_hermite:
             self.set('h3', min=-0.3, max=0.3, value=0.)
             self.set('h4', min=-0.3, max=0.3, value=0.)
