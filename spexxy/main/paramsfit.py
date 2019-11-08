@@ -10,7 +10,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 from spexxy.data import FitsSpectrum, Spectrum
 from spexxy.component import Component
 from spexxy.mask import Mask
-from spexxy.weight import Weight
+from spexxy.weight import Weight, WeightFromGridNearest, WeightFromGrid
 from spexxy.data import SpectrumFitsHDU
 from .main import MainRoutine
 from spexxy.tools.plot import plot_spectrum
@@ -163,6 +163,10 @@ class ParamsFit(MainRoutine):
         # weights
         self._weights = self.get_objects(weights, Weight, 'weights')
 
+        # values are set by MultiMain routine and are used to choose the proper weights from a given grid
+        self.step = None
+        self.init_values = None
+
     def parameters(self) -> List[str]:
         """Get list of parameters fitted by this routine.
 
@@ -183,6 +187,29 @@ class ParamsFit(MainRoutine):
             params.extend(['%s %s' % (self._tellurics.prefix, p) for p in self._tellurics.param_names])
 
         # finished
+        return params
+
+    def fit_parameters(self) -> List[str]:
+        """Get list of parameters fitted by this routine that. Exclude fixed parameters.
+
+        Returns:
+            List of parameter names (including prefix) fitted by this routine.
+        """
+
+        # init
+        params = []
+
+        # loop components
+        for cmp in self._cmps:
+            # loop all parameters of this component
+            for param_name in cmp.param_names:
+                # check if this parameter is fixed
+                if self._fixparams and cmp.name in self._fixparams and param_name in self._fixparams[cmp.name]:
+                    continue
+
+                # add parameter to list
+                params.append('{} {}'.format(cmp.prefix, param_name))
+
         return params
 
     def columns(self) -> List[str]:
@@ -238,6 +265,11 @@ class ParamsFit(MainRoutine):
         if self._weights is not None:
             # loop all weights
             for w in self._weights:
+                if isinstance(w, (WeightFromGridNearest, WeightFromGrid)):
+                    # set the iteration step and the initial values used to choose the weights from the given grid
+                    w.step = self.step
+                    w.init_values = self.init_values
+
                 # multiply weights array with new weights
                 self._weight *= w(self._spec, filename)
 
