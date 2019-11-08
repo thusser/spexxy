@@ -163,7 +163,7 @@ class ParamsFit(MainRoutine):
         # weights
         self._weights = self.get_objects(weights, Weight, 'weights')
 
-        # values are set by MultiMain routine and are used to choose the proper weights from a given grid
+        # values are set by MultiMain routine and are to choose the proper weights from a given grid
         self.step = None
         self.init_values = None
 
