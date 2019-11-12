@@ -68,7 +68,7 @@ class MultiMain(MainRoutine):
 
         # call base and add columns Iterations, Success and Convergence
         if self._max_iterations is not None:
-            return MainRoutine.columns(self) + ['Iterations', 'Success', 'Convergence']
+            return MainRoutine.columns(self) + ['Iterations', 'Success', 'Convergence', 'Damping']
 
         return MainRoutine.columns(self) + ['Iterations', 'Success']
 
@@ -214,26 +214,129 @@ class MultiMain(MainRoutine):
                     res.append(it + 1)
                     res.append(success)
                     res.append(converged)
+                    res.append(1.)
 
                     return res
-                elif it == self._max_iterations - 1:
-                    # fit is successful if each iteration was a success
-                    success = np.all(success)
 
-                    # fit did not converge
-                    converged = False
+        # if fit did not converge try again with damping factor
+        if self._max_iterations is not None:
+            for p in self._threshold:
+                self._threshold[p] /= 2
 
-                    # convert results dict into results list
-                    res = []
-                    for p in parameters:
-                        res.extend(results[p])
+            for damping in [0.9, 0.7]:
+                # reset parameters to initial values
+                for cmp_name, cmp in self.objects['components'].items():
+                    cmp.init(filename)
 
-                    # add iteration, success and convergence to results
-                    res.append(it + 1)
-                    res.append(success)
-                    res.append(converged)
+                # save initial values of components
+                init_values = {}
+                for cmp_name, cmp in self.objects['components'].items():
+                    for param_name in cmp.param_names:
+                        init_values['{} {}'.format(cmp.prefix, param_name)] = cmp[param_name]
 
-                    return res
+                results_damped = {p: None for p in parameters}
+                results = {p: None for p in parameters}
+                success = []
+                results_total = {p: [] for p in fit_params}
+
+                # loop over fit parameters
+                for it in range(3 * maxiter):
+                    for routine in self._routines:
+                        # forward iteration step and initial values to routine
+                        routine.step = it + 1
+                        routine.init_values = init_values
+
+                        # set poly degree for this routine
+                        routine._poly_degree = self._poly_degree
+
+                        # get parameters for this routine
+                        params = routine.parameters()
+
+                        # run routine
+                        res = routine(filename)
+
+                        # store results
+                        for i, p in enumerate(params):
+                            # if parameter is a fit parameter in another iteration step don't overwrite previous result
+                            # otherwise the error will be set to zero
+                            if p in fit_params and p not in routine.fit_parameters():
+                                # initialize dictionary
+                                if results[p] is None:
+                                    results[p] = [res[i * 2], res[i * 2 + 1]]
+                                    results_damped[p] = [res[i * 2], res[i * 2 + 1]]
+
+                                continue
+
+                            # copy both results and errors!
+                            results[p] = [res[i * 2], res[i * 2 + 1]]
+                            results_damped[p] = [res[i * 2], res[i * 2 + 1]]
+
+                        # was iteration a success?
+                        success.append(res[-1])
+
+                        delta = {}
+                        for p in routine.fit_parameters():
+                            delta[p] = damping * (results[p][0] - init_values[p])
+
+                        for p in routine.fit_parameters():
+                            init_values[p] += delta[p]
+                            results_damped[p][0] = init_values[p]
+
+                        for cmp_name, cmp in self.objects['components'].items():
+                            for param_name in cmp.param_names:
+                                if '{} {}'.format(cmp.prefix, param_name) in routine.fit_parameters():
+                                    cmp[param_name] = init_values['{} {}'.format(cmp.prefix, param_name)]
+
+                    # update initial values by most recent fit results
+                    init_values = {p: results_damped[p][0] for p in init_values}
+
+                    # save results of all steps
+                    for p in fit_params:
+                        results_total[p].append(results[p][0])
+
+                    # run at least for 2 iterations
+                    if it == 0:
+                        continue
+
+                    # check for convergence
+                    if self.convergence(results_total):
+                        # fit is successful if each iteration was a success
+                        success = np.all(success)
+
+                        # fit converged
+                        converged = True
+
+                        # convert results dict into results list
+                        res = []
+                        for p in parameters:
+                            res.extend(results[p])
+
+                        # add iteration, success and convergence to results
+                        res.append(it + 1)
+                        res.append(success)
+                        res.append(converged)
+                        res.append(damping)
+
+                        return res
+
+            # fit is successful if each iteration was a success
+            success = np.all(success)
+
+            # fit did not converge
+            converged = False
+
+            # convert results dict into results list
+            res = []
+            for p in parameters:
+                res.extend(results[p])
+
+            # add iteration, success and convergence to results
+            res.append(maxiter + 2 * 3 * maxiter)
+            res.append(success)
+            res.append(converged)
+            res.append(damping)
+
+            return res
 
         # fit is successful if each iteration was a success
         success = np.all(success)
