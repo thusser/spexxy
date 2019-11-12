@@ -93,6 +93,8 @@ class MultiMain(MainRoutine):
         for routine in self._routines:
             fit_params.extend(routine.fit_parameters())
 
+        fit_params = list(set(fit_params))
+
         # dictionary that contains the fit results of all iteration steps, used for convergence test
         results_total = {p: [] for p in fit_params}
 
