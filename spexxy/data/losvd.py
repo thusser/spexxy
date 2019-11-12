@@ -1,7 +1,7 @@
 import math
 from typing import Tuple
 import numpy as np
-import scipy.misc
+import scipy.special
 from numpy.polynomial import hermite
 
 from spexxy.data.spectrum import Spectrum
@@ -44,7 +44,7 @@ class LOSVD:
         # Hermite polynomials normalized as in Appendix A of van der Marel &
         # Franx (1993). They are given e.g. in Appendix C of Cappellari et al. (2002)
         n = np.arange(3 + len(herm))
-        nrm = np.sqrt(scipy.misc.factorial(n) * 2 ** n)
+        nrm = np.sqrt(scipy.special.factorial(n) * 2 ** n)
 
         # normalize coefficients
         c = np.array([1., 0., 0.] + herm) / nrm
