@@ -20,7 +20,7 @@ class MultiMain(MainRoutine):
 
     def __init__(self, routines: List = None, iterations: int = 1, max_iterations: int = None,
                  threshold: Dict[str, float] = None, poly_degree: int = 40, damped: bool = True,
-                 factors=(0.15, 0.05), *args, **kwargs):
+                 factors: list = (0.3, 0.1), *args, **kwargs):
         """Initialize a new MultiRun object
 
         Args:
@@ -248,6 +248,9 @@ class MultiMain(MainRoutine):
 
         # if fit did not converge try again with damping factor
         if self._max_iterations is not None and self._damped:
+            for p in self._threshold:
+                self._threshold[p] /= 3
+
             for damping_factor in self._factors:
                 # reset parameters to initial values
                 for cmp_name, cmp in self.objects['components'].items():
