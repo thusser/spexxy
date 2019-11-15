@@ -1,6 +1,1 @@
-astropy
-lmfit
-numpy
-pandas
-pyyaml
-scipy
+.

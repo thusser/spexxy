@@ -11,5 +11,12 @@ setup(
     packages=find_packages(include=['spexxy', 'spexxy.*']),
     scripts=['bin/spexxy', 'bin/spexxytools'],
     include_package_data=True,
-    requires=['scipy', 'numpy', 'astropy', 'pandas', 'lmfit']
+    install_requires=[
+        'scipy',
+        'numpy',
+        'astropy',
+        'pandas',
+        'lmfit',
+        'pyyaml'
+    ]
 )

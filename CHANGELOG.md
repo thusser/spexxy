@@ -1,5 +1,10 @@
 ## Changelog
 
+### v2.3 (2019-11-15)
+* Added iterative fitting in MultiMain (by B. Bischoff).
+* Added new classes WeightFromGrid and WeightFromGridNearest (by B. Bischoff).
+* Some bug fixes.
+
 ### v2.2 (2019-02-04)
 * Renamed PhoenixGrid to FilesGrid and generalized it.
 * Added Isochrone class and CLI methods.
