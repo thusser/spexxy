@@ -137,11 +137,6 @@ class WeightFromGrid(Weight):
 
                 return self._weights[3]
 
-            # consider only the regions with the highest weights
-            if len(w[w['step'] == 1]) >= 20:
-                w = w[w['step'] == 1]
-                w = w.sort_values('weights', ascending=False).iloc[:20]
-
             # create weight array for each iteration step
             self._weights = {step: self._get_weight_array(
                 w[w['step'] <= step], spectrum) for step in range(1, 4)}
@@ -214,7 +209,8 @@ class WeightFromGrid(Weight):
         # average lines with identical wave centers together
         df['wave_center'] = centers
         df_grouped = df.groupby('wave_center')
-        df = df_grouped.filter(lambda x: len(x) == 1)
+        df = df_grouped.filter(lambda x: len(x) == 1).copy()
+        df['weights'] *= df['w'].values
 
         # average lines showing up in both tables
         df2 = df_grouped.filter(lambda x: (len(x) == 2) & (x['w'].sum() == 1)).copy()
