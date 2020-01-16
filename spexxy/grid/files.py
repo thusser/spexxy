@@ -83,7 +83,13 @@ class FilesGrid(Grid):
         """
 
         # get filename
-        filename = self._data.loc[tuple(params)].Filename
+        tmp = self._data.loc[tuple(params)]
+        if isinstance(tmp, pd.core.frame.DataFrame):
+            if len(tmp) > 0:
+                self.log.warning('More than one matching spectrum found, taking first.')
+            filename = tmp.iloc[0].Filename
+        else:
+            filename = tmp.Filename
 
         # return Spectrum
         return Spectrum.load(os.path.join(self._root, filename))

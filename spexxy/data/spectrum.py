@@ -1112,9 +1112,7 @@ class SpectrumFits(SpectrumFitsHDU):
         hdu_list = fits.HDUList([spec_hdu])
         if wave_hdu:
             hdu_list.append(wave_hdu)
-        if os.path.exists(filename):
-            os.remove(filename)
-        hdu_list.writeto(filename)
+        hdu_list.writeto(filename, overwrite=True)
 
         # store filename
         self._filename = filename

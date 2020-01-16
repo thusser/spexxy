@@ -17,7 +17,7 @@ class WeightFromGrid(Weight):
     interpolation. It returns an array containing the weights.
     """
 
-    def __init__(self, filename, initial: float = 0., max_line_depth: float = 0.1, center_weight: float = 1.,
+    def __init__(self, filename, initial: float = 0., max_line_depth: float = 0.5, center_weight: float = 1.,
                  max_step: int = 1, *args, **kwargs):
         """
         Initializes a new weight.
@@ -25,7 +25,6 @@ class WeightFromGrid(Weight):
         Args:
             filename: Name of grid file.
             initial: Initial value for the whole weight array.
-            max_line_depth:
             max_line_depth: Central pixel for lines with larger line depth are masked out.
             center_weight: Factor that increases the weight of the central pixel of each line.
             max_step: In iteration steps <= max_step new weights are loaded from the grid.
@@ -33,22 +32,21 @@ class WeightFromGrid(Weight):
 
         Weight.__init__(self, *args, **kwargs)
 
+        # expand filename
+        filename = os.path.expandvars(filename)
+
+        self.filename = filename
+
         self._initial = initial
         self._max_line_depth = max_line_depth
         self._center_weight = center_weight
         self._max_step = max_step
 
-        self._args = args
-        self._kwargs = kwargs
-
-        # expand filename
-        self._filename = os.path.expandvars(filename)
-
         # get grid's root path
-        self._root = os.path.dirname(self._filename)
+        self._root = os.path.dirname(filename)
 
         # load CSV
-        self._data = pd.read_csv(self._filename, index_col=False)
+        self._data = pd.read_csv(filename, index_col=False)
 
         # get all parameters, by removing 'Filename' from list of columns
         self._parameters = list(self._data.columns)
@@ -67,15 +65,19 @@ class WeightFromGrid(Weight):
                 del self._axes[i]
                 self._parameters.remove(p)
 
-        # values set by main routine
-        self.step = None
-        self.init_values = {}
+        # initialize step counter
+        self._step = 1
 
-        # weights will be stored for next iterations
+        # values of the fit parameter from previous iteration step
+        self._previous_values = None
+
+        # save weight array
         self._weights = None
 
-        # stores values of fit parameters from two iterations before
-        self._previous_values = None
+        # save initial parameters
+        self._initial_values = None
+
+        self._logg = None
 
     def __call__(self, spectrum: Spectrum, filename: str) -> np.ndarray:
         """
@@ -89,63 +91,95 @@ class WeightFromGrid(Weight):
              Array containing the weight for given spectrum.
         """
 
+        # save initial values
+        if self._initial_values is None:
+            self._initial_values = {}
+            for cmp in self.objects['init_iter'].values():
+                for param_name in cmp.param_names:
+                    self._initial_values[param_name] = cmp[param_name]
+
+                    if param_name == 'logg' and self._logg is None:
+                        self._logg = cmp[param_name]
+
+                break
+
         # load new weights if the fit parameters changed significantly
         new_weights = False
         if self._previous_values is not None:
-            params = []
             for param in self._parameters:
-                # fit parameter in component?
-                if param in map(lambda x: x.split()[-1], list(self.init_values.keys())):
-                    p = list(filter(lambda x: param == x.split()[-1], list(self.init_values.keys())))[0]
-                    params.append(self.init_values[p])
-                    i = self._parameters.index(param)
-                    if param.lower() == 'teff':
-                        if abs(self._previous_values[i] - self.init_values[p]) >= 250:
-                            new_weights = True
-                    else:
-                        if abs(self._previous_values[i] - self.init_values[p]) >= 0.25:
-                            new_weights = True
+                if new_weights:
+                    break
+                for cmp in self.objects['init_iter'].values():
+                    for param_name in cmp.param_names:
+                        if param.lower() != param_name.lower():
+                            continue
 
-            self._previous_values = params.copy()
+                        if param.lower() == 'teff':
+                            # did Teff change by more than 300K?
+                            new_weights = abs(
+                                self._previous_values[self._parameters.index(param)] - cmp[param_name]) > 300
+                        else:
+                            # did FeH, Alpha or logg change by more than 0.3 dex?
+                            new_weights = abs(
+                                self._previous_values[self._parameters.index(param)] - cmp[param_name]) > 0.3
+
+        # are current parameter values identical with initial values?
+        if self._step > 1:
+            tmp = []
+            for cmp in self.objects['init_iter'].values():
+                for param_name in cmp.param_names:
+                    tmp.append(cmp[param_name] == self._initial_values[param_name])
+
+                break
+
+            # component is reset to initial values if the fit restarts with a damping factor, in that case the iteration
+            #  step needs to be reset as well
+            if np.all(tmp):
+                self._step = 1
 
         # load new weights if max_step has not been reached or fit parameters changed significantly
-        if (self.step <= self._max_step) or new_weights:
+        if (self._step <= self._max_step) or new_weights:
+            if new_weights:
+                self._step = 1
+
+            # get parameters from component
             params = []
             for param in self._parameters:
-                # fit parameter in component
-                if param in map(lambda x: x.split()[-1], list(self.init_values.keys())):
-                    # write parameter value to list
-                    p = list(filter(lambda x: param == x.split()[-1], list(self.init_values.keys())))[0]
-                    params.append(self.init_values[p])
+                for cmp in self.objects['init_iter'].values():
+                    for param_name in cmp.param_names:
+                        if param.lower() != param_name.lower():
+                            continue
 
+                        params.append(cmp[param_name])
+
+                    break
+
+            # save current parameters for next step
             self._previous_values = params.copy()
 
             # interpolate weight for given values, use nearest neighbour if values are outside of the grid
             try:
-                w = self._interpolate(tuple(params))
+                self._weight_table = self._interpolate(tuple(params))
             except KeyError:
-                w = WeightFromGridNearest(self._filename, self._initial, self._max_line_depth, self._center_weight,
-                                          self._max_step, *self._args, **self._kwargs)
-                w.init_values = self.init_values
-                w.step = self.step
-                w.new_weights = new_weights
-                w.return_dict = True
-                self._weights = w(spectrum, filename)
+                self._weight_table = None
+                w = WeightFromGridNearest(self.filename, self._initial, self._max_line_depth, self._center_weight,
+                                          self._max_step, objects=self.objects)
 
-                if self.step <= 3:
-                    return self._weights[self.step]
+                self._weights = {step: w(spectrum, filename) for step in range(1, 6)}
 
-                return self._weights[3]
+        if self._weight_table is None:
+            if self._step <= 5:
+                w = self._weights[self._step]
+                self._step += 1
 
-            # create weight array for each iteration step
-            self._weights = {step: self._get_weight_array(
-                w[w['step'] <= step], spectrum) for step in range(1, 4)}
+                return w
 
-        # return weight array for proper iteration step
-        if self.step <= 3:
-            return self._weights[self.step]
+            return self._weights[5]
 
-        return self._weights[3]
+        w = self._get_weight_array(self._weight_table, spectrum)
+        self._step += 1
+
+        return w
 
     def _interpolate(self, params: Tuple, axis: int = None) -> pd.DataFrame:
         # no axis given, start at latest
@@ -254,21 +288,75 @@ class WeightFromGrid(Weight):
         """
 
         # consider only weights for iteration steps lower/equal than the given one
-        df = df[df['step'] <= self.step]
+        df = df[df['step'] <= self._step]
+        df = df[df['weights'] > 10.]
 
         # initialize weight array
         weights = np.zeros(spectrum.wave.shape) + self._initial
 
         # write weights to array
         for i, row in df.iterrows():
-            weights[(spectrum.wave >= row['wave_start']) & (spectrum.wave <= row['wave_end'])] = row['weights']
+            # mask out central part strong absorption lines
+            # Halpha
+            if (row['wave_center'] < 6566.) & (row['wave_center'] > 6557.) & (self._logg <= 3.5):
+                weights[(spectrum.wave >= row['wave_start']) & (spectrum.wave <= row['wave_end'])] += row['weights']
+
+                i = np.argmin(np.abs(spectrum.wave - row['wave_center']))
+                weights[i - 1:i + 2] = 0
+                continue
+            elif (row['wave_center'] < 6566.) & (row['wave_center'] > 6557.) & (self._logg > 3.5):
+                weights[(spectrum.wave >= row['wave_start']) & (spectrum.wave <= row['wave_end'])] += row['weights']
+
+                i = np.argmin(np.abs(spectrum.wave - row['wave_center']))
+                weights[i] = 0
+                continue
+
+            # Hbeta
+            if (row['wave_center'] < 4857.) & (row['wave_center'] > 4867.):
+                weights[(spectrum.wave >= row['wave_start']) & (spectrum.wave <= row['wave_end'])] += row['weights']
+
+                i = np.argmin(np.abs(spectrum.wave - row['wave_center']))
+                weights[i] = 0
+                continue
+
+            # FeI line
+            if (row['wave_center'] < 5272.) and (row['wave_center'] > 5267.):
+                weights[(spectrum.wave >= row['wave_start']) & (spectrum.wave <= row['wave_end'])] += row['weights']
+
+                i = np.argmin(np.abs(spectrum.wave - row['wave_center']))
+                weights[i - 1:i + 2] = 0
+                continue
+
+            # Ca triplet
+            if (row['wave_center'] < 8508.) and (row['wave_center'] > 8490.):
+                weights[(spectrum.wave >= row['wave_start']) & (spectrum.wave <= row['wave_end'])] += row['weights']
+
+                i = np.argmin(np.abs(spectrum.wave - row['wave_center']))
+                weights[i - 2:i + 3] = 0
+                continue
+
+            if (row['wave_center'] < 8553.) and (row['wave_center'] > 8530.):
+                weights[(spectrum.wave >= row['wave_start']) & (spectrum.wave <= row['wave_end'])] += row['weights']
+
+                i = np.argmin(np.abs(spectrum.wave - row['wave_center']))
+                weights[i - 2:i + 3] = 0
+                continue
+
+            if (row['wave_center'] < 8672.) and (row['wave_center'] > 8651.):
+                weights[(spectrum.wave >= row['wave_start']) & (spectrum.wave <= row['wave_end'])] += row['weights']
+
+                i = np.argmin(np.abs(spectrum.wave - row['wave_center']))
+                weights[i - 2:i + 3] = 0
+                continue
+
+            weights[(spectrum.wave >= row['wave_start']) & (spectrum.wave <= row['wave_end'])] += row['weights']
 
             # if line depth larger than given threshold mask out the central region otherwise increase weight of
             # central pixel by given factor
             if row['line_depth'] > self._max_line_depth:
                 # if region spans more than 10 wavelength pixel mask out the 3 central pixel otherwise only the central
                 # one
-                if (row['wave_end'] - row['wave_start']) // spectrum.wave_step >= 10:
+                if (row['wave_end'] - row['wave_start']) >= 12:
                     i = np.argmin(np.abs(spectrum.wave - row['wave_center']))
                     weights[i-1:i+2] = 0
                 else:

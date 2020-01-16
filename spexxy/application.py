@@ -52,7 +52,7 @@ class Application(object):
 
                 # filter files
                 log.info('Filtering finished files...')
-                self._filenames = list(filter(lambda filename: filename not in data['FILENAME'].values,
+                self._filenames = list(filter(lambda filename: filename not in data['Filename'].values,
                                               self._filenames))
 
             else:
