@@ -140,7 +140,7 @@ class Component(spexxyObject):
 
             # normalize?
             if self.normalize:
-                param['value'] = (param['value'] - param['min']) / (param['max'] - param['min'])
+                param['value'] = self.norm_param(name, param['value'])
                 param['min'] = 0
                 param['max'] = 1
 
@@ -170,13 +170,23 @@ class Component(spexxyObject):
                 # does it exist?
                 if name in self.parameters:
                     # de-normalize?
-                    value = param.value
                     if self.normalize:
-                        p = self.parameters[name]
-                        value = value * (p['max'] - p['min']) + p['min']
+                        value, stderr = self.denorm_param(name, param.value, param.stderr)
+                    else:
+                        value, stderr = param.value, param.stderr
 
                     # set it
-                    self.set(name, value=value, stderr=param.stderr)
+                    self.set(name, value=value, stderr=stderr)
+                    
+    def norm_param(self, name, value):
+        param = self.parameters[name]
+        return (value - param['min']) / (param['max'] - param['min'])
+
+    def denorm_param(self, name, value, stderr=None):
+        param = self.parameters[name]
+        val = value * (param['max'] - param['min']) + param['min']
+        std = None if stderr is None else stderr * (param['max'] - param['min'])
+        return val, std
 
     def init(self, filename: str):
         """Calls all Init objects with the given filename in order to initialize this component.

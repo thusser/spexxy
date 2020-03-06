@@ -343,16 +343,23 @@ class ParamsFit(MainRoutine):
         # write results back to file
         self._write_results_to_file(filename, result, best_fit, stats)
 
+        # all components
+        components = self._cmps
+        if self._tellurics is not None:
+            components.append(self._tellurics)
+
         # build list of results and return them
         results = []
         for cmp in self._cmps:
+            # parse parameters
+            cmp.parse_params(result.params)
+
+            # loop params
             for n in cmp.param_names:
                 p = '%s%s' % (cmp.prefix, n)
-                results += [result.params[p].value, result.params[p].stderr]
-        if self._tellurics is not None:
-            for n in self._tellurics.param_names:
-                p = '%s%s' % (self._tellurics.prefix, n)
-                results += [result.params[p].value, result.params[p].stderr]
+                results += [cmp.parameters[n]['value'], cmp.parameters[n]['stderr']]
+
+        # success?
         results += [success]
         return results
 
@@ -402,10 +409,7 @@ class ParamsFit(MainRoutine):
 
                 # de-normalize?
                 p = cmp.parameters[name]
-                if cmp.normalize:
-                    val = param.value * (p['max'] - p['min']) + p['min']
-                else:
-                    val = param.value
+                val, _ = cmp.denorm_param(name, param.value) if cmp.normalize else param.value
 
                 # show
                 if param.vary:
