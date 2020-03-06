@@ -397,9 +397,21 @@ class ParamsFit(MainRoutine):
         for cmp in self._cmps + ([self._tellurics] if self._tellurics else []):
             values = []
             for name in cmp.param_names:
+                # get param
                 param = params[cmp.prefix + name]
+
+                # de-normalize?
+                p = cmp.parameters[name]
+                if cmp.normalize:
+                    val = param.value * (p['max'] - p['min']) + p['min']
+                else:
+                    val = param.value
+
+                # show
                 if param.vary:
-                    values.append('%s=%.2f' % (name, param.value))
+                    values.append('%s=%.2f' % (name, val))
+
+            # print it
             if len(values) > 0:
                 messages.append('%s(%s)' % (cmp.prefix, ', '.join(values)))
 

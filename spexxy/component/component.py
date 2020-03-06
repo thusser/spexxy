@@ -9,13 +9,14 @@ from spexxy.data import FitsSpectrum
 class Component(spexxyObject):
     """Base class for all Components in spexxy."""
 
-    def __init__(self, name: str, init: list = None, prefix: str = None, *args, **kwargs):
+    def __init__(self, name: str, init: list = None, prefix: str = None, normalize: bool = True, *args, **kwargs):
         """Initialize a new component.
 
         Args:
             name: Name of component
             init: List of Init objects for initializing the component
             prefix: Prefix for parameter name when combined in other model. Automatically derived from name if None.
+            normalize: Whether or not to normalize parameters to 0..1 range
         """
         spexxyObject.__init__(self, *args, **kwargs)
 
@@ -25,6 +26,9 @@ class Component(spexxyObject):
 
         # weight for params fit
         self.weight = 1.
+
+        # norm?
+        self.normalize = normalize
 
         # parameters
         self.parameters = {}
@@ -134,6 +138,12 @@ class Component(spexxyObject):
                 if k in param:
                     del param['stderr']
 
+            # normalize?
+            if self.normalize:
+                param['value'] = (param['value'] - param['min']) / (param['max'] - param['min'])
+                param['min'] = 0
+                param['max'] = 1
+
             # add it to params
             params.add(self.prefix + name, **param)
 
@@ -159,8 +169,14 @@ class Component(spexxyObject):
 
                 # does it exist?
                 if name in self.parameters:
+                    # de-normalize?
+                    value = param.value
+                    if self.normalize:
+                        p = self.parameters[name]
+                        value = value * (p['max'] - p['min']) + p['min']
+
                     # set it
-                    self.set(name, value=param.value, stderr=param.stderr)
+                    self.set(name, value=value, stderr=param.stderr)
 
     def init(self, filename: str):
         """Calls all Init objects with the given filename in order to initialize this component.
