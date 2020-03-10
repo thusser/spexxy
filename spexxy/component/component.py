@@ -77,7 +77,7 @@ class Component(spexxyObject):
         # set values
         for key, val in kwargs.items():
             if key in ('value', 'stderr', 'vary', 'min', 'max'):
-                self.parameters[name][key] = val
+                self.parameters[name][key] = np.float64(val)
 
     def __getitem__(self, name: str) -> float:
         """Returns the value for an existing parameter.
@@ -100,7 +100,7 @@ class Component(spexxyObject):
             name: Name of parameter to set
             value: New value for parameter
         """
-        self.set(name, value=value)
+        self.set(name, value=np.float64(value))
 
     def make_params(self, **kwargs) -> Parameters:
         """Creates a Parameters object with a Parameter for each parameter of this component.

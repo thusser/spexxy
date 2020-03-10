@@ -17,6 +17,9 @@ from ..utils.exception import *
 class Spectrum(object):
     """A class representing a single spectrum."""
 
+    """Data type for spectra."""
+    dtype = np.float64
+
     class Mode(Enum):
         """Spectrum wavelength mode."""
         LAMBDA = 0
@@ -67,7 +70,7 @@ class Spectrum(object):
         # got a ref_spec?
         if spec is not None:
             # initialize from ref_spec
-            self.flux = spec.flux.copy() if copy_flux else None
+            self.flux = spec.flux.astype(Spectrum.dtype) if copy_flux else None
             self._wave_start = spec.wave_start
             self._wave_step = spec.wave_step
             self._wavelength = None if spec._wavelength is None else spec._wavelength.copy()
@@ -100,7 +103,7 @@ class Spectrum(object):
                 # if no flux is given, initialize it empty
                 if flux is None:
                     # create flux array and fill with NaNs
-                    flux = np.empty((wave_count))
+                    flux = np.empty((wave_count), dtype=Spectrum.dtype)
                     flux[:] = np.nan
 
                     # if also no valid array is given, it's all invalid now
@@ -927,7 +930,7 @@ class SpectrumFitsHDU(Spectrum):
             self._primary = isinstance(hdu, fits.PrimaryHDU)
 
             # get data from HDU
-            self.flux = hdu.data.copy()
+            self.flux = hdu.data.astype(Spectrum.dtype)
 
             # get header
             hdr = hdu.header
