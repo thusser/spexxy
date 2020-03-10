@@ -9,7 +9,10 @@ from spexxy.data import FitsSpectrum
 class Component(spexxyObject):
     """Base class for all Components in spexxy."""
 
-    def __init__(self, name: str, init: list = None, prefix: str = None, normalize: bool = True, *args, **kwargs):
+    """Data type for parameters"""
+    dtype = np.float64
+
+    def __init__(self, name: str, init: list = None, prefix: str = None, normalize: bool = False, *args, **kwargs):
         """Initialize a new component.
 
         Args:
@@ -77,7 +80,7 @@ class Component(spexxyObject):
         # set values
         for key, val in kwargs.items():
             if key in ('value', 'stderr', 'vary', 'min', 'max'):
-                self.parameters[name][key] = np.float64(val)
+                self.parameters[name][key] = Component.dtype(val)
 
     def __getitem__(self, name: str) -> float:
         """Returns the value for an existing parameter.
@@ -100,7 +103,7 @@ class Component(spexxyObject):
             name: Name of parameter to set
             value: New value for parameter
         """
-        self.set(name, value=np.float64(value))
+        self.set(name, value=Component.dtype(value))
 
     def make_params(self, **kwargs) -> Parameters:
         """Creates a Parameters object with a Parameter for each parameter of this component.
@@ -178,11 +181,30 @@ class Component(spexxyObject):
                     # set it
                     self.set(name, value=value, stderr=stderr)
                     
-    def norm_param(self, name, value):
+    def norm_param(self, name: str, value: float) -> float:
+        """Normalize the value of the parameter with the given name to 0..1 range defined by its min/max.
+
+        Args:
+            name: Name of parameter to normalize.
+            value: Value to normalize.
+
+        Returns:
+            Normalized value.
+        """
         param = self.parameters[name]
         return (value - param['min']) / (param['max'] - param['min'])
 
-    def denorm_param(self, name, value, stderr=None):
+    def denorm_param(self, name: str, value: float, stderr: float = None) -> (float, float):
+        """De-Normalize the value of the parameter with the given name to its real value.
+
+        Args:
+            name: Name of parameter to de-normalize.
+            value: Value to normalize.
+            stderr: If given, standard deviation of value.
+
+        Returns:
+            Normalized value and its standard deviation, if given.
+        """
         param = self.parameters[name]
         val = value * (param['max'] - param['min']) + param['min']
         std = None if stderr is None else stderr * (param['max'] - param['min'])
