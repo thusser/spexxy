@@ -409,7 +409,7 @@ class ParamsFit(MainRoutine):
 
                 # de-normalize?
                 p = cmp.parameters[name]
-                val, _ = cmp.denorm_param(name, param.value) if cmp.normalize else param.value, None
+                val, _ = cmp.denorm_param(name, param.value) if cmp.normalize else (param.value, None)
 
                 # show
                 if param.vary:
