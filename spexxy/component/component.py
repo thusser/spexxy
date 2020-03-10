@@ -9,13 +9,17 @@ from spexxy.data import FitsSpectrum
 class Component(spexxyObject):
     """Base class for all Components in spexxy."""
 
-    def __init__(self, name: str, init: list = None, prefix: str = None, *args, **kwargs):
+    """Data type for parameters"""
+    dtype = np.float64
+
+    def __init__(self, name: str, init: list = None, prefix: str = None, normalize: bool = False, *args, **kwargs):
         """Initialize a new component.
 
         Args:
             name: Name of component
             init: List of Init objects for initializing the component
             prefix: Prefix for parameter name when combined in other model. Automatically derived from name if None.
+            normalize: Whether or not to normalize parameters to 0..1 range
         """
         spexxyObject.__init__(self, *args, **kwargs)
 
@@ -25,6 +29,9 @@ class Component(spexxyObject):
 
         # weight for params fit
         self.weight = 1.
+
+        # norm?
+        self.normalize = normalize
 
         # parameters
         self.parameters = {}
@@ -73,7 +80,7 @@ class Component(spexxyObject):
         # set values
         for key, val in kwargs.items():
             if key in ('value', 'stderr', 'vary', 'min', 'max'):
-                self.parameters[name][key] = np.float64(val)
+                self.parameters[name][key] = Component.dtype(val)
 
     def __getitem__(self, name: str) -> float:
         """Returns the value for an existing parameter.
@@ -96,7 +103,7 @@ class Component(spexxyObject):
             name: Name of parameter to set
             value: New value for parameter
         """
-        self.set(name, value=np.float64(value))
+        self.set(name, value=Component.dtype(value))
 
     def make_params(self, **kwargs) -> Parameters:
         """Creates a Parameters object with a Parameter for each parameter of this component.
@@ -134,6 +141,12 @@ class Component(spexxyObject):
                 if k in param:
                     del param['stderr']
 
+            # normalize?
+            if self.normalize:
+                param['value'] = self.norm_param(name, param['value'])
+                param['min'] = 0
+                param['max'] = 1
+
             # add it to params
             params.add(self.prefix + name, **param)
 
@@ -159,8 +172,43 @@ class Component(spexxyObject):
 
                 # does it exist?
                 if name in self.parameters:
+                    # de-normalize?
+                    if self.normalize:
+                        value, stderr = self.denorm_param(name, param.value, param.stderr)
+                    else:
+                        value, stderr = param.value, param.stderr
+
                     # set it
-                    self.set(name, value=param.value, stderr=param.stderr)
+                    self.set(name, value=value, stderr=stderr)
+                    
+    def norm_param(self, name: str, value: float) -> float:
+        """Normalize the value of the parameter with the given name to 0..1 range defined by its min/max.
+
+        Args:
+            name: Name of parameter to normalize.
+            value: Value to normalize.
+
+        Returns:
+            Normalized value.
+        """
+        param = self.parameters[name]
+        return (value - param['min']) / (param['max'] - param['min'])
+
+    def denorm_param(self, name: str, value: float, stderr: float = None) -> (float, float):
+        """De-Normalize the value of the parameter with the given name to its real value.
+
+        Args:
+            name: Name of parameter to de-normalize.
+            value: Value to normalize.
+            stderr: If given, standard deviation of value.
+
+        Returns:
+            Normalized value and its standard deviation, if given.
+        """
+        param = self.parameters[name]
+        val = value * (param['max'] - param['min']) + param['min']
+        std = None if stderr is None else stderr * (param['max'] - param['min'])
+        return val, std
 
     def init(self, filename: str):
         """Calls all Init objects with the given filename in order to initialize this component.
