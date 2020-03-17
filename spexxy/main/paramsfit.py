@@ -219,7 +219,7 @@ class ParamsFit(MainRoutine):
         """
 
         # call base and add columns Success
-        return MainRoutine.columns(self) + ['Success', 'redchi']
+        return MainRoutine.columns(self) + ['Success', 'RedChi2']
 
     @property
     def components(self) -> List[Component]:
