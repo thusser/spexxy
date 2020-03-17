@@ -219,7 +219,7 @@ class ParamsFit(MainRoutine):
         """
 
         # call base and add columns Success
-        return MainRoutine.columns(self) + ['Success']
+        return MainRoutine.columns(self) + ['Success', 'redchi']
 
     @property
     def components(self) -> List[Component]:
@@ -360,7 +360,7 @@ class ParamsFit(MainRoutine):
                 results += [cmp.parameters[n]['value'], cmp.parameters[n]['stderr']]
 
         # success?
-        results += [success]
+        results += [success, result.redchi]
         return results
 
     def _load_spectrum(self, filename: str) -> (Spectrum, np.ndarray):
