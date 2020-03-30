@@ -2,24 +2,64 @@ import logging
 import math
 import re
 import io
-from typing import List
+from typing import List, Dict, Tuple
 
 import numpy as np
 import pandas as pd
 from scipy import optimize
+from scipy.interpolate import interp1d
+
+
+def _norm_space(s):
+    s -= np.min(s)
+    return s / np.max(s)
 
 
 class Isochrone:
     """Handles an isochrone in spexxy."""
-    def __init__(self, data: pd.DataFrame, meta: dict = None):
+    def __init__(self, filename: str = None, data: pd.DataFrame = None, meta: dict = None):
         """Create a new isochrone.
         
         Args:
             data: Actual isochrone data with column Teff, logg, logL/Lo, mbol, M_ini, M_act, and one for each filter.
             meta: Meta data for the isochrone, i.e. age, metallicity, etc.
         """
-        self._data = data
-        self._meta = meta
+
+        # what do we have?
+        if filename is not None:
+            # read from file, so try to read meta data
+            self._meta = {}
+            with open(filename, 'r') as f:
+                for line in f:
+                    # we break on first non-comment line
+                    if not line.startswith('#'):
+                        break
+
+                    # split by first '=', if exists
+                    eq = line.find('=')
+                    if eq > -1:
+                        # get it
+                        key = line[1:eq].strip()
+                        val = line[eq + 1:].strip()
+
+                        # is val a float?
+                        try:
+                            val = float(val)
+                        except ValueError:
+                            pass
+
+                        # store it
+                        self._meta[key] = val
+            # load data
+            self._data = pd.read_csv(filename, index_col=False, comment='#')
+
+        elif data is not None:
+            # take data and meta
+            self._data = data
+            self._meta = meta
+
+        else:
+            raise ValueError('Either filename or data must be given.')
 
     @property
     def age(self):
@@ -32,6 +72,10 @@ class Isochrone:
     @property
     def extinction(self):
         return self._meta['Av'] if 'Av' in self._meta else None
+
+    @property
+    def type(self):
+        return self._meta['Type'] if 'Type' in self._meta else None
 
     @property
     def filters(self) -> list:
@@ -77,48 +121,7 @@ class Isochrone:
         Returns:
             Copy of this isochrone.
         """
-        return Isochrone(self._data.copy(), dict(self._meta))
-
-    @staticmethod
-    def load(filename: str) -> 'Isochrone':
-        """Load an isochrone from file.
-
-        Args:
-            filename: Filename of isochrone.
-
-        Returns:
-            Loaded isochrone.
-        """
-
-        # try to read meta data
-        meta = {}
-        with open(filename, 'r') as f:
-            for line in f:
-                # we break on first non-comment line
-                if not line.startswith('#'):
-                    break
-
-                # split by first '=', if exists
-                eq = line.find('=')
-                if eq > -1:
-                    # get it
-                    key = line[1:eq].strip()
-                    val = line[eq+1:].strip()
-
-                    # is val a float?
-                    try:
-                        val = float(val)
-                    except ValueError:
-                        pass
-
-                    # store it
-                    meta[key] = val
-
-        # load data
-        data = pd.read_csv(filename, index_col=False, comment='#')
-
-        # return new Isochrone
-        return Isochrone(data, meta)
+        return Isochrone(data=self._data.copy(), meta=dict(self._meta))
 
     def save(self, filename: str):
         """Write isochrone to a file.
@@ -318,218 +321,398 @@ class Isochrone:
         #    parts += [AGB]
         self._data = pd.concat(parts)
 
+    def interpolate(self, count: int = 500, column: str = 'M_ini', space: list = None):
+        """Interpolate an isochrone.
 
-def import_cmd27(filename) -> Isochrone:
-    """Import PARSEC isochrone in version 2.7.
+        Args:
+            count: Number of new points along isochrone.
+            column: Column used for interpolation.
+            space: Two columns defining space for distance calculations.
 
-    Args:
-        filename: Name of file to load.
+        """
 
-    Returns:
-        Parsed isochrone.
-    """
+        # space
+        if space is None:
+            space = ['Teff', 'logg']
 
-    # regular expression for search for end of header
-    re_hdr = re.compile(r'\[M/H\]\s+=\s+([+-]?[0-9]+\.[0-9]+).*Age\s+=\s+([0-9]*\.[0-9]*e[+-][0-9]*)\s+yr')
+        # get X column for interpolator
+        x = self.data[column]
+        x_min = np.min(x)
+        x_max = np.max(x)
 
-    # find line with header
-    header_lines = None
-    m_h = None
-    age = None
-    header = None
-    logging.info('Searching for header...')
-    with open(filename, "r") as f:
-        for header_lines, line in enumerate(f):
-            m = re_hdr.search(line)
-            if m:
-                m_h = float(m.group(1))
-                age = float(m.group(2))
+        # normalize space to 0..1
+        space_x = _norm_space(self.data[space[0]].values.copy())
+        space_y = _norm_space(self.data[space[1]].values.copy())
 
-            if line[0] == '#' and 'log(age/yr)' in line:
-                # found last header line, read header
-                header = line[1:].split()
-                break
+        # integrate space along isochrone
+        logging.info('Creating new grid with %d points in %s between %.3f and %.3f', count, column, x_min, x_max)
+        dist = [0.]
+        for i in range(len(space_x) - 1):
+            dist += [dist[-1] + np.sqrt((space_x[i + 1] - space_x[i]) ** 2. + (space_y[i + 1] - space_y[i]) ** 2.)]
 
-    # no header or [M/H] found?
-    if header is None:
-        raise IOError('Could not find header.')
-    if m_h is None or age is None:
-        raise IOError('Could not find [M/H] or age.')
-    logging.info('Found Age=%.2fgyr, [M/H]=%.2f.', age/1e9, m_h)
+        # create interpolator of x on dist
+        ip = interp1d(dist, x)
 
-    # read file
-    logging.info('Reading data...')
-    data = pd.read_csv(filename, skiprows=header_lines + 1, sep='\s+', names=header)
+        # interpolate x with constant sampling, which will be our new grid
+        grid = ip(np.linspace(0., dist[-1], count))
 
-    # find filter columns
-    filters = list(data.columns.values[8:-2])
-    logging.info('Found filters: ' + ', '.join(filters))
+        # get new grid
+        data = {column: grid}
 
-    # we don't want log(Teff), but Teff
-    data['Teff'] = 10. ** data['logTe']
-
-    # get meta data
-    meta = {
-        'Age': age,
-        '[M/H]': m_h
-    }
-
-    # rename some columns
-    data = data.rename(columns={'logG': 'logg'})
-
-    # log it
-    logging.info('Found columns: ' + ', '.join(data.columns))
-
-    # return isochrone
-    return Isochrone(data[['Teff', 'logg', 'logL/Lo', 'mbol', 'M_ini', 'M_act'] + filters], meta)
-
-
-def import_cmd29(filename: str) -> List[Isochrone]:
-    """Import PARSEC isochrone in version 2.9.
-
-    Args:
-        filename: Name of file to load.
-
-    Returns:
-        Parsed isochrone.
-    """
-
-    # find line with header
-    header = None
-    logging.info('Searching for header...')
-    with open(filename, "r") as f:
-        last_line = None
-        for line in f:
-            # first line with no comment? means last line was header.
-            if not line.startswith('#'):
-                header = last_line[1:].split()
-                break
-
-            # store last line
-            last_line = line
-
-    # no header found?
-    if header is None:
-        raise IOError('Could not find header.')
-
-    # read file
-    logging.info('Reading data...')
-    data = pd.read_csv(filename, comment='#', sep='\s+', names=header)
-
-    # add metallicity column
-    data['FeH'] = np.log(data['Zini'] / 0.0152)
-
-    # remove "*mag" from columns
-    data.columns = [c[:-3] if c.endswith('mag') else c for c in data.columns]
-
-    # find filter columns
-    filters = list(data.columns.values[24:])
-    logging.info('Found filters: ' + ', '.join(filters))
-
-    # we don't want log(Teff), but Teff
-    data['Teff'] = 10. ** data['logTe']
-
-    # rename some columns
-    data = data.rename(columns={'Mass': 'M_act'})
-    data = data.rename(columns={'Mini': 'M_ini'})
-    data = data.rename(columns={'logL': 'logL/Lo'})
-
-    # get unique ages and metallicities
-    uage = sorted(data['Age'].unique())
-    ufeh = sorted(data['FeH'].unique())
-
-    # loop
-    isochrones = []
-    for age in uage:
-        for feh in ufeh:
-            # get subset
-            d = data[(data['Age'] == age) & (data['FeH'] == feh)]
-            if len(d) == 0:
+        # interpolate
+        for col in self.data.columns:
+            # skip column from command line
+            if col == column:
                 continue
+            logging.info('Interpolating column "%s"...', col)
 
-            # get age and metallicity
-            logging.info('Found Age=%.2fgyr, [M/H]=%.2f.', age/1e9, feh)
+            # create interpolator
+            ip = interp1d(x.values, self.data[col].values)
 
-            # get meta data
-            meta = {
-                'Age': age,
-                '[M/H]': feh
-            }
+            # do interpolation
+            data[col] = ip(grid)
 
-            # create isochrone
-            iso = Isochrone(d[['Teff', 'logg', 'logL/Lo', 'mbol', 'M_ini', 'M_act'] + filters], meta)
-            isochrones.append(iso)
-
-    # finished
-    return isochrones
+        # use it
+        self._data = pd.DataFrame(data)
 
 
-def import_cmd33(filename: str) -> List[Isochrone]:
-    """Import PARSEC isochrone in version 3.3.
+class MultiIsochrone:
+    def __init__(self, filename: str, *args, **kwargs):
+        # init
+        self.filename = filename
+        self._ages = []
+        self._metallicities = []
+        self._extinctions = []
 
-    Args:
-        filename: Name of file to load.
+        # load isochrones
+        self._isochrones = self._load_isochrones(filename)
 
-    Returns:
-        Parsed isochrone.
-    """
+        # get parameters
+        params = list(zip(*list(self._isochrones.keys())))
+        self._ages = list(sorted(list(set(params[0]))))
+        self._metallicities = list(sorted(list(set(params[1]))))
+        self._extinctions = list(sorted(list(set(params[2]))))
 
-    # open file and find header and stuff
-    with open(filename, 'r') as f:
-        for line in f:
-            # Av?
-            if 'Av=' in line:
-                tmp = line[line.index('Av=') + 3:]
-                av = float(tmp[:tmp.index(',')])
-            # find header
-            if line.startswith('# Zini'):
-                names = line[2:].split()
-                break
+    @staticmethod
+    def guess_type(filename: str) -> str:
+        """Guess type of given file.
+
+        Args:
+            filename: Name of file to guess type for.
+
+        Returns:
+            Type of file.
+        """
+
+        # open file
+        with open(filename, 'r') as f:
+            # read first line
+            line = f.readline()
+
+            # CMD?
+            if 'CMD 2.7' in line:
+                return 'CMD 2.7'
+            elif 'CMD 2.9' in line:
+                return 'CMD 2.9'
+            elif 'CMD 3.3' in line:
+                return 'CMD 3.3'
+            else:
+                raise ValueError('Unknown isochrone type.')
+
+    @staticmethod
+    def load(filename: str) -> 'MultiIsochrone':
+        """Guess isochrone type and load it
+
+        Args:
+            filename: Name of file to load.
+
+        Returns:
+            A MultiIsochrone object.
+        """
+
+        # guess type
+        file_type = MultiIsochrone.guess_type(filename)
+
+        # load it
+        if file_type == 'CMD 2.7':
+            return CMD27IsochroneFile(filename)
+        elif file_type == 'CMD 2.9':
+            return CMD29IsochroneFile(filename)
+        elif file_type == 'CMD 3.3':
+            return CMD33IsochroneFile(filename)
         else:
-            raise ValueError('Could not find header in isochrone file.')
+            raise ValueError('Unknown isochrone type.')
 
-    # load data
-    data = pd.read_csv(filename, index_col=False, delim_whitespace=True, comment='#', names=names)
+    def _load_isochrones(self, filename: str) -> Dict[Tuple[float, float, float], Isochrone]:
+        """Actually load isochrones from file.
 
-    # age and Teff
-    data['logAge'] = 10. ** data['logAge']
-    data['logTe'] = 10. ** data['logTe']
+        Args:
+            filename: Name of file to load.
 
-    # rename some columns
-    data.rename(columns={'Mass': 'M_act', 'Mini': 'M_ini', 'logL': 'logL/Lo', 'logAge': 'Age',
-                         'MH': 'FeH', 'logTe': 'Teff'},
-                inplace=True)
+        Returns:
+            Dictionary with isochrones.
+        """
+        raise NotImplemented
 
-    # find filter columns and remove "mag" from names
-    filters = [c[:-3] for c in data.columns if c.endswith('mag')]
-    logging.info('Found filters: ' + ', '.join(filters))
-    data.rename(columns={f + 'mag': f for f in filters}, inplace=True)
+    @property
+    def ages(self):
+        return self._ages
 
-    # loop unique ages and metallicities
-    isochrones = []
-    for age in sorted(data['Age'].unique()):
-        for feh in sorted(data['FeH'].unique()):
-            # get subset
-            d = data[(data['Age'] == age) & (data['FeH'] == feh)]
-            if len(d) == 0:
-                continue
+    @property
+    def metallicities(self):
+        return self._metallicities
 
-            # get age and metallicity
-            logging.info('Found Age=%.2fgyr, [M/H]=%.2f.', age/1e9, feh)
+    @property
+    def extinction(self):
+        return self._extinctions
 
-            # get meta data
-            meta = {
-                'Age': age,
-                '[M/H]': feh,
-                'Av': av
-            }
+    def isochrone(self, age: float, metallicity: float, extinction: float) -> Isochrone:
+        """Return a single isochrone.
 
-            # create isochrone
-            iso = Isochrone(d[['Teff', 'logg', 'logL/Lo', 'mbol', 'M_ini', 'M_act'] + filters], meta)
-            isochrones.append(iso)
+        Args:
+            age: Age
+            metallicity: Metallicity [M/H]
+            extinction: Extinction Av
 
-    # finished
-    return isochrones
+        Returns:
+            A single isochrone with the given parameters
+        """
+        return self._isochrones[(age, metallicity, extinction)]
+
+    @property
+    def isochrones(self) -> Dict[Tuple[float, float, float], Isochrone]:
+        """Returns all isochrones in file.
+
+        Returns:
+            Dictionary with all Isochrones
+        """
+        return self._isochrones
 
 
-__all__ = ['Isochrone', 'import_cmd27', 'import_cmd29', 'import_cmd33']
+class CMD27IsochroneFile(MultiIsochrone):
+    """Isochrone file from PARSEC 2.7"""
+
+    def _load_isochrones(self, filename: str) -> Dict[Tuple[float, float, float], Isochrone]:
+        """Actually load isochrones from file.
+
+        Args:
+            filename: Name of file to load.
+
+        Returns:
+            Dictionary wuth isochrones.
+        """
+
+        # regular expression for search for end of header
+        re_hdr = re.compile(r'\[M/H\]\s+=\s+([+-]?[0-9]+\.[0-9]+).*Age\s+=\s+([0-9]*\.[0-9]*e[+-][0-9]*)\s+yr')
+
+        # find line with header
+        header_lines = None
+        m_h = None
+        age = None
+        header = None
+        logging.info('Searching for header...')
+        with open(filename, "r") as f:
+            for header_lines, line in enumerate(f):
+                m = re_hdr.search(line)
+                if m:
+                    m_h = float(m.group(1))
+                    age = float(m.group(2))
+
+                if line[0] == '#' and 'log(age/yr)' in line:
+                    # found last header line, read header
+                    header = line[1:].split()
+                    break
+
+        # no header or [M/H] found?
+        if header is None:
+            raise IOError('Could not find header.')
+        if m_h is None or age is None:
+            raise IOError('Could not find [M/H] or age.')
+        logging.info('Found Age=%.2fgyr, [M/H]=%.2f.', age/1e9, m_h)
+
+        # read file
+        logging.info('Reading data...')
+        data = pd.read_csv(filename, skiprows=header_lines + 1, sep='\s+', names=header)
+
+        # find filter columns
+        filters = list(data.columns.values[8:-2])
+        logging.info('Found filters: ' + ', '.join(filters))
+
+        # we don't want log(Teff), but Teff
+        data['Teff'] = 10. ** data['logTe']
+
+        # get meta data
+        meta = {
+            'Age': age,
+            '[M/H]': m_h,
+            'Type': 'CMD 2.7'
+        }
+
+        # rename some columns
+        data = data.rename(columns={'logG': 'logg'})
+
+        # log it
+        logging.info('Found columns: ' + ', '.join(data.columns))
+
+        # return isochrone
+        iso = Isochrone(data=data[['Teff', 'logg', 'logL/Lo', 'mbol', 'M_ini', 'M_act'] + filters], meta=meta)
+        return {(age, m_h, 0): iso}
+
+
+class CMD29IsochroneFile(MultiIsochrone):
+    """Isochrone file from PARSEC 2.9"""
+
+    def _load_isochrones(self, filename: str) -> Dict[Tuple[float, float, float], Isochrone]:
+        """Actually load isochrones from file.
+
+        Args:
+            filename: Name of file to load.
+
+        Returns:
+            Dictionary wuth isochrones.
+        """
+
+        # find line with header
+        header = None
+        logging.info('Searching for header...')
+        with open(filename, "r") as f:
+            last_line = None
+            for line in f:
+                # first line with no comment? means last line was header.
+                if not line.startswith('#'):
+                    header = last_line[1:].split()
+                    break
+
+                # store last line
+                last_line = line
+
+        # no header found?
+        if header is None:
+            raise IOError('Could not find header.')
+
+        # read file
+        logging.info('Reading data...')
+        data = pd.read_csv(filename, comment='#', sep='\s+', names=header)
+
+        # add metallicity column
+        data['FeH'] = np.log(data['Zini'] / 0.0152)
+
+        # remove "*mag" from columns
+        data.columns = [c[:-3] if c.endswith('mag') else c for c in data.columns]
+
+        # find filter columns
+        filters = list(data.columns.values[24:])
+        logging.info('Found filters: ' + ', '.join(filters))
+
+        # we don't want log(Teff), but Teff
+        data['Teff'] = 10. ** data['logTe']
+
+        # rename some columns
+        data = data.rename(columns={'Mass': 'M_act'})
+        data = data.rename(columns={'Mini': 'M_ini'})
+        data = data.rename(columns={'logL': 'logL/Lo'})
+
+        # get unique ages and metallicities
+        uage = sorted(data['Age'].unique())
+        ufeh = sorted(data['FeH'].unique())
+
+        # loop
+        isochrones = []
+        for age in uage:
+            for feh in ufeh:
+                # get subset
+                d = data[(data['Age'] == age) & (data['FeH'] == feh)]
+                if len(d) == 0:
+                    continue
+
+                # get age and metallicity
+                logging.info('Found Age=%.2fgyr, [M/H]=%.2f.', age/1e9, feh)
+
+                # get meta data
+                meta = {
+                    'Age': age,
+                    '[M/H]': feh,
+                    'Type': 'CMD 2.9'
+                }
+
+                # create isochrone
+                iso = Isochrone(data=d[['Teff', 'logg', 'logL/Lo', 'mbol', 'M_ini', 'M_act'] + filters], meta=meta)
+                isochrones[(age, feh, av)] = iso
+
+        # finished
+        return isochrones
+
+
+class CMD33IsochroneFile(MultiIsochrone):
+    """Isochrone file from PARSEC 3.3"""
+
+    def _load_isochrones(self, filename: str) -> Dict[Tuple[float, float, float], Isochrone]:
+        """Actually load isochrones from file.
+
+        Args:
+            filename: Name of file to load.
+
+        Returns:
+            Dictionary wuth isochrones.
+        """
+
+        # open file and find header and stuff
+        with open(filename, 'r') as f:
+            for line in f:
+                # Av?
+                if 'Av=' in line:
+                    tmp = line[line.index('Av=') + 3:]
+                    av = float(tmp[:tmp.index(',')])
+                # find header
+                if line.startswith('# Zini'):
+                    names = line[2:].split()
+                    break
+            else:
+                raise ValueError('Could not find header in isochrone file.')
+
+        # load data
+        data = pd.read_csv(filename, index_col=False, delim_whitespace=True, comment='#', names=names)
+
+        # age and Teff
+        data['logAge'] = 10. ** data['logAge']
+        data['logTe'] = 10. ** data['logTe']
+
+        # rename some columns
+        data.rename(columns={'Mass': 'M_act', 'Mini': 'M_ini', 'logL': 'logL/Lo', 'logAge': 'Age',
+                             'MH': 'FeH', 'logTe': 'Teff'},
+                    inplace=True)
+
+        # find filter columns and remove "mag" from names
+        filters = [c[:-3] for c in data.columns if c.endswith('mag')]
+        logging.info('Found filters: ' + ', '.join(filters))
+        data.rename(columns={f + 'mag': f for f in filters}, inplace=True)
+
+        # loop unique ages and metallicities
+        isochrones = {}
+        for age in sorted(data['Age'].unique()):
+            for feh in sorted(data['FeH'].unique()):
+                # get subset
+                d = data[(data['Age'] == age) & (data['FeH'] == feh)]
+                if len(d) == 0:
+                    continue
+
+                # get age and metallicity
+                logging.info('Found Age=%.2fgyr, [M/H]=%.2f.', age/1e9, feh)
+
+                # get meta data
+                meta = {
+                    'Age': age,
+                    '[M/H]': feh,
+                    'Av': av,
+                    'Type': 'CMD 3.3'
+                }
+
+                # create isochrone
+                iso = Isochrone(data=d[['Teff', 'logg', 'logL/Lo', 'M_ini', 'M_act'] + filters], meta=meta)
+                isochrones[(age, feh, av)] = iso
+
+        # finished
+        return isochrones
+
+
+__all__ = ['Isochrone', 'MultiIsochrone']

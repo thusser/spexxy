@@ -26,7 +26,7 @@ def add_parser(subparsers):
 def run(args):
     # get isochrone
     logging.info("Loading isochrone from %s...", args.isochrone)
-    isochrone = Isochrone.load(args.isochrone)
+    isochrone = Isochrone(args.isochrone)
 
     # get filters in isochrone
     iso_filter1 = args.filter1.upper() if args.filter1_iso is None else args.filter1_iso.upper()
