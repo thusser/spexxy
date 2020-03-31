@@ -15,6 +15,56 @@ def _norm_space(s):
     return s / np.max(s)
 
 
+def _cubic_polynomial(x, y, p):
+    """Cubic polynomial that can be fitted to an isochrone.
+
+    Args:
+        x: Colours of points in isochrone.
+        y: Magnitudes of points in isochrone.
+        p: Coefficients for polynomial.
+
+    Returns:
+        Evaluated polynomial.
+    """
+    return p[0] + p[1] * x + p[2] * y + p[3] * x * x + p[4] * y * y + p[5] * x * y + p[6] * x * x * x + \
+           p[7] * x * x * y + p[8] * x * y * y + p[9] * y * y * y
+
+
+def _quadratic_polynomial(x, y, p):
+    """Quadratic polynomial that can be fitted to an isochrone.
+
+    Args:
+        x: Colours of points in isochrone.
+        y: Magnitudes of points in isochrone.
+        p: Coefficients for polynomial.
+
+    Returns:
+        Evaluated polynomial.
+    """
+    return p[0] + p[1] * x + p[2] * y + p[3] * x * x + p[4] * y * y + p[5] * x * y
+
+
+def _linear_polynomial(x, y, p):
+    """Linear polynomial that can be fitted to an isochrone.
+
+    Args:
+        x: Colours of points in isochrone.
+        y: Magnitudes of points in isochrone.
+        p: Coefficients for polynomial.
+
+    Returns:
+        Evaluated polynomial.
+    """
+    return p[0] + p[1] * x + p[2] * y
+
+
+POLYNOMIALS = {
+    'linear': _linear_polynomial,
+    'quadratic': _quadratic_polynomial,
+    'cubic': _cubic_polynomial
+}
+
+
 class Isochrone:
     """Handles an isochrone in spexxy."""
     def __init__(self, filename: str = None, data: pd.DataFrame = None, meta: dict = None):
@@ -60,6 +110,10 @@ class Isochrone:
 
         else:
             raise ValueError('Either filename or data must be given.')
+
+    @staticmethod
+    def load(filename: str):
+        return Isochrone(filename)
 
     @property
     def age(self):
@@ -141,37 +195,28 @@ class Isochrone:
                 self._data.to_csv(sio, index=False)
                 f.write(sio.getvalue())
 
-    @staticmethod
-    def _polynomial(x, y, p):
-        """Polynomial that can be fitted to an isochrone.
-
-        Args:
-            x: Colours of points in isochrone.
-            y: Magnitudes of points in isochrone.
-            p: Coefficients for polynomial.
-
-        Returns:
-            Evaluated polynomial.
-        """
-        return p[0] + p[1] * x + p[2] * y + p[3] * x * x + p[4] * y * y + p[5] * x * y + p[6] * x * x * x + \
-               p[7] * x * x * y + p[8] * x * y * y + p[9] * y * y * y
-
-    def _fit(self, col: list, mag: list, value: list):
+    def _fit(self, col: list, mag: list, value: list, mode: str = 'linear'):
         """Fit a polynomial to the isochrone.
 
         Args:
             col: List (or equivalent) of colours to fit.
             mag: List (or equivalent) of magnitudes to fit.
             value: List (or equivalent) of data to fit.
+            mode: Polynomial degree to use, either linear, quadratic, or cubic
 
         Returns:
-
+            Result
         """
+
+        # get polynomial
+        poly = POLYNOMIALS[mode]
+
         # error function
-        func = lambda p: self._polynomial(col, mag, p) - value
+        func = lambda p: poly(col, mag, p) - value
 
         # initial guess
-        initial = np.array([1, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+        num_coeffs = {'linear': 3, 'quadratic': 6, 'cubic': 10}[mode] - 1
+        initial = np.array([1] + [0] * num_coeffs)
 
         # fit
         res = optimize.leastsq(func, initial, full_output=True)
@@ -181,13 +226,14 @@ class Isochrone:
         # return parameters
         return res[0]
 
-    def interpolator(self, column: str, filter1: str, filter2: str):
+    def interpolator(self, column: str, filter1: str, filter2: str, mode: str = 'linear'):
         """Create a polynomial interpolator for the given data column and two filters.
 
         Args:
             column: Name of column containing data.
             filter1: Name of first filter, used for magnitude.
             filter2: Name of second filter, colour is calculated as filter1-filter2.
+            mode: Polynomial degree to use, either linear, quadratic, or cubic
 
         Returns:
             Function for interpolating isochrone with a polynomial.
@@ -197,12 +243,15 @@ class Isochrone:
         colour = self._data[filter1] - self._data[filter2]
         magnitudes = self._data[filter1]
 
+        # get polynomial
+        poly = POLYNOMIALS[mode]
+
         # fit polynomial
-        poly = self._fit(colour, magnitudes, self._data[column])
+        coeffs = self._fit(colour, magnitudes, self._data[column], mode=mode)
 
         # define method to return
         def interpolator_inner(col, mag):
-            return self._polynomial(col, mag, poly)
+            poly(col, mag, coeffs)
 
         # return method
         return interpolator_inner
@@ -255,6 +304,9 @@ class Isochrone:
 
         # calculating distance modulus
         dist_mod = 5. * np.log10(distance) - 5.
+
+        # set distance in meta
+        self._meta['Distance'] = distance
 
         # add to filter columns
         self._data[self.filters] += dist_mod
@@ -617,7 +669,7 @@ class CMD29IsochroneFile(MultiIsochrone):
         ufeh = sorted(data['FeH'].unique())
 
         # loop
-        isochrones = []
+        isochrones = {}
         for age in uage:
             for feh in ufeh:
                 # get subset
@@ -637,7 +689,7 @@ class CMD29IsochroneFile(MultiIsochrone):
 
                 # create isochrone
                 iso = Isochrone(data=d[['Teff', 'logg', 'logL/Lo', 'mbol', 'M_ini', 'M_act'] + filters], meta=meta)
-                isochrones[(age, feh, av)] = iso
+                isochrones[(age, feh, 0)] = iso
 
         # finished
         return isochrones

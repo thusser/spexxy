@@ -22,6 +22,10 @@ def add_parser(subparsers):
     parser.add_argument('--filter2-iso', help='Second filter in isochrone to use (--filter2 if empty)', type=str)
     parser.add_argument('--nearest', help='Use nearest neighbour instead of polynomial', action='store_true')
 
+    group_ex = parser.add_mutually_exclusive_group()
+    group_ex.add_argument('--quadratic', help='Use quadratic polynomial instead of linear one', action='store_true')
+    group_ex.add_argument('--cubic', help='Use cubic polynomial instead of linear one', action='store_true')
+
 
 def run(args):
     # get isochrone
@@ -62,10 +66,11 @@ def run(args):
     if args.nearest:
         ip_nearest = isochrone.nearest(iso_filter1, iso_filter2)
     else:
-        ip_teff = isochrone.interpolator('Teff', iso_filter1, iso_filter2)
-        ip_logg = isochrone.interpolator('logg', iso_filter1, iso_filter2)
-        ip_mact = isochrone.interpolator('M_act', iso_filter1, iso_filter2)
-        ip_mini = isochrone.interpolator('M_ini', iso_filter1, iso_filter2)
+        mode = 'quadratic' if args.quadratic else 'cubic' if args.cubic else 'linear'
+        ip_teff = isochrone.interpolator('Teff', iso_filter1, iso_filter2, mode=mode)
+        ip_logg = isochrone.interpolator('logg', iso_filter1, iso_filter2, mode=mode)
+        ip_mact = isochrone.interpolator('M_act', iso_filter1, iso_filter2, mode=mode)
+        ip_mini = isochrone.interpolator('M_ini', iso_filter1, iso_filter2, mode=mode)
 
     # loop all photometry
     logging.info('Applying isochrone to all stars in photometry...')
