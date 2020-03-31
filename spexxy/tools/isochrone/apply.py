@@ -109,9 +109,9 @@ def run(args):
 
             # check
             valid = True
-            valid &= args.check_teff is None or args.check_teff[0] <= Teff <= args.check_teff[1]
-            valid &= args.check_logg is None or args.check_logg[0] <= logg <= args.check_logg[1]
-            valid &= args.check_mact is None or args.check_mact[0] <= Mact <= args.check_mact[1]
+            valid &= args.check_teff is None or args.check_teff[0] <= Teff[0] <= args.check_teff[1]
+            valid &= args.check_logg is None or args.check_logg[0] <= logg[0] <= args.check_logg[1]
+            valid &= args.check_mact is None or args.check_mact[0] <= Mact[0] <= args.check_mact[1]
             if not valid:
                 continue
 
