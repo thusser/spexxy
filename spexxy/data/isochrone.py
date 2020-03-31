@@ -251,7 +251,7 @@ class Isochrone:
 
         # define method to return
         def interpolator_inner(col, mag):
-            poly(col, mag, coeffs)
+            return poly(col, mag, coeffs)
 
         # return method
         return interpolator_inner
