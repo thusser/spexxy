@@ -1,5 +1,8 @@
 ## Changelog
 
+### v2.4
+* Re-organized isochrones classes, added MultiIsochrone for external files
+
 ### v2.3 (2019-11-15)
 * Added iterative fitting in MultiMain (by B. Bischoff).
 * Added new classes WeightFromGrid and WeightFromGridNearest (by B. Bischoff).
