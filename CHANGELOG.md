@@ -2,6 +2,7 @@
 
 ### v2.4
 * Re-organized isochrones classes, added MultiIsochrone for external files
+* added different polynomials and sanity check to "isochrone appl"
 
 ### v2.3 (2019-11-15)
 * Added iterative fitting in MultiMain (by B. Bischoff).
