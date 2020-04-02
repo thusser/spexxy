@@ -708,6 +708,9 @@ class CMD33IsochroneFile(MultiIsochrone):
             Dictionary wuth isochrones.
         """
 
+        # if we don't find an Av, we set it to 0
+        av = 0
+
         # open file and find header and stuff
         with open(filename, 'r') as f:
             for line in f:
