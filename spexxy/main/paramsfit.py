@@ -271,7 +271,7 @@ class ParamsFit(MainRoutine):
         # less than 50% of pixels valid?
         if np.sum(self._valid) < self._min_valid_pixels * len(self._valid):
             self.log.warning('Less then %d percent of pixels valid, skipping...', self._min_valid_pixels * 100)
-            return [None] * (len(self.columns()) - 1) + [False]
+            return [None] * (len(self.columns()) - 1) + [False, 0]
 
         # initialize multiplicative polynomial with ones
         self._mult_poly = Legendre(self._spec, self._poly_degree)
