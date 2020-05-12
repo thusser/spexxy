@@ -1,10 +1,8 @@
 import os
-import logging
 
-from astropy.io import fits
 import numpy as np
 import pandas as pd
-from typing import List, Tuple
+from typing import List, Union
 
 from .weight import Weight
 from ..data import Spectrum
@@ -17,7 +15,7 @@ class WeightFromGridNearest(Weight):
     """
 
     def __init__(self, filename, initial: float = 0., max_line_depth: float = 0.5, center_weight: float = 1.,
-                 max_step: int = 1, *args, **kwargs):
+                 max_step: int = 1, mask_lines: Union[bool, str, List] = True, max_change=(300, 0.3), *args, **kwargs):
         """
         Initializes a new weight.
 
@@ -27,6 +25,7 @@ class WeightFromGridNearest(Weight):
             max_line_depth: Central pixel for lines with larger line depth are masked out.
             center_weight: Factor that increases the weight of the central pixel of each line.
             max_step: In iteration steps <= max_step new weights are loaded from the grid.
+            mask_lines: List of absorption lines that are always masked out in their centers.
         """
 
         Weight.__init__(self, *args, **kwargs)
@@ -38,6 +37,26 @@ class WeightFromGridNearest(Weight):
         self._max_line_depth = max_line_depth
         self._center_weight = center_weight
         self._max_step = max_step
+        self._max_change = sorted(max_change, reverse=True)
+
+        if mask_lines:
+            if isinstance(mask_lines, bool):
+                self._mask_lines = 'default'
+            elif isinstance(mask_lines, list):
+                self._mask_lines = []
+                for line in mask_lines:
+                    if len(line) == 2:
+                        self._mask_lines.append(line + [-0.5, 6.5])
+                    else:
+                        self._mask_lines.append(line)
+            elif isinstance(mask_lines, str):
+                df = pd.read_csv(os.path.expandvars(mask_lines))
+                df.loc[df['logg_min'].isna(), 'logg_min'] = -0.5
+                df.loc[df['logg_max'].isna(), 'logg_max'] = 6.5
+
+                self._mask_lines = df.to_numpy()
+        else:
+            self._mask_lines = mask_lines
 
         # expand filename
         filename = os.path.expandvars(filename)
@@ -122,11 +141,11 @@ class WeightFromGridNearest(Weight):
                         if param.lower() == 'teff':
                             # did Teff change by more than 300K?
                             new_weights = abs(
-                                self._previous_values[self._parameters.index(param)] - cmp[param_name]) > 300
+                                self._previous_values[self._parameters.index(param)] - cmp[param_name]) > self._max_change[0]
                         else:
                             # did FeH, Alpha or logg change by more than 0.3 dex?
                             new_weights = abs(
-                                self._previous_values[self._parameters.index(param)] - cmp[param_name]) > 0.3
+                                self._previous_values[self._parameters.index(param)] - cmp[param_name]) > self._max_change[1]
 
         # are current parameter values identical with initial values?
         if self._step > 1:
@@ -201,58 +220,12 @@ class WeightFromGridNearest(Weight):
 
         # write weights to array
         for i, row in df.iterrows():
-            # mask out central part strong absorption lines
-            # Halpha
-            if (row['wave_center'] < 6566.) & (row['wave_center'] > 6557.) & (self._logg <= 3.5):
-                weights[(spectrum.wave >= row['wave_start']) & (spectrum.wave <= row['wave_end'])] += row['weights']
-
-                i = np.argmin(np.abs(spectrum.wave - row['wave_center']))
-                weights[i - 1:i + 2] = 0
-                continue
-            elif (row['wave_center'] < 6566.) & (row['wave_center'] > 6557.) & (self._logg > 3.5):
-                weights[(spectrum.wave >= row['wave_start']) & (spectrum.wave <= row['wave_end'])] += row['weights']
-
-                i = np.argmin(np.abs(spectrum.wave - row['wave_center']))
-                weights[i] = 0
-                continue
-
-            # Hbeta
-            if (row['wave_center'] < 4857.) & (row['wave_center'] > 4867.):
-                weights[(spectrum.wave >= row['wave_start']) & (spectrum.wave <= row['wave_end'])] += row['weights']
-
-                i = np.argmin(np.abs(spectrum.wave - row['wave_center']))
-                weights[i] = 0
-                continue
-
-            # FeI line
-            if (row['wave_center'] < 5272.) and (row['wave_center'] > 5267.):
-                weights[(spectrum.wave >= row['wave_start']) & (spectrum.wave <= row['wave_end'])] += row['weights']
-
-                i = np.argmin(np.abs(spectrum.wave - row['wave_center']))
-                weights[i - 1:i + 2] = 0
-                continue
-
-            # Ca triplet
-            if (row['wave_center'] < 8508.) and (row['wave_center'] > 8490.):
-                weights[(spectrum.wave >= row['wave_start']) & (spectrum.wave <= row['wave_end'])] += row['weights']
-
-                i = np.argmin(np.abs(spectrum.wave - row['wave_center']))
-                weights[i - 2:i + 3] = 0
-                continue
-
-            if (row['wave_center'] < 8553.) and (row['wave_center'] > 8530.):
-                weights[(spectrum.wave >= row['wave_start']) & (spectrum.wave <= row['wave_end'])] += row['weights']
-
-                i = np.argmin(np.abs(spectrum.wave - row['wave_center']))
-                weights[i - 2:i + 3] = 0
-                continue
-
-            if (row['wave_center'] < 8672.) and (row['wave_center'] > 8651.):
-                weights[(spectrum.wave >= row['wave_start']) & (spectrum.wave <= row['wave_end'])] += row['weights']
-
-                i = np.argmin(np.abs(spectrum.wave - row['wave_center']))
-                weights[i - 2:i + 3] = 0
-                continue
+            if isinstance(self._mask_lines, list) or isinstance(self._mask_lines, np.ndarray):
+                if self._mask_centers(row, self._mask_lines, weights, spectrum):
+                    continue
+            elif self._mask_lines == 'default':
+                if self._mask_default_lines(row, weights, spectrum):
+                    continue
 
             weights[(spectrum.wave >= row['wave_start']) & (spectrum.wave <= row['wave_end'])] += row['weights']
 
@@ -270,6 +243,78 @@ class WeightFromGridNearest(Weight):
                 weights[np.argmin(np.abs(spectrum.wave - row['wave_center']))] *= self._center_weight
 
         return weights
+
+    def _mask_default_lines(self, row: pd.Series, weights: np.ndarray, spectrum: Spectrum):
+        # Halpha
+        if (row['wave_center'] < 6566.) & (row['wave_center'] > 6557.) & (self._logg <= 3.5):
+            weights[(spectrum.wave >= row['wave_start']) & (spectrum.wave <= row['wave_end'])] += row['weights']
+
+            i = np.argmin(np.abs(spectrum.wave - row['wave_center']))
+            weights[i - 1:i + 2] = 0
+            return True
+        elif (row['wave_center'] < 6566.) & (row['wave_center'] > 6557.) & (self._logg > 3.5):
+            weights[(spectrum.wave >= row['wave_start']) & (spectrum.wave <= row['wave_end'])] += row['weights']
+
+            i = np.argmin(np.abs(spectrum.wave - row['wave_center']))
+            weights[i] = 0
+            return True
+
+        # Hbeta
+        if (row['wave_center'] < 4867.) & (row['wave_center'] > 4857.):
+            weights[(spectrum.wave >= row['wave_start']) & (spectrum.wave <= row['wave_end'])] += row['weights']
+
+            i = np.argmin(np.abs(spectrum.wave - row['wave_center']))
+            weights[i] = 0
+            return True
+
+        # FeI line
+        if (row['wave_center'] < 5272.) and (row['wave_center'] > 5267.):
+            weights[(spectrum.wave >= row['wave_start']) & (spectrum.wave <= row['wave_end'])] += row['weights']
+
+            i = np.argmin(np.abs(spectrum.wave - row['wave_center']))
+            weights[i - 1:i + 2] = 0
+            return True
+
+        # Ca triplet
+        if (row['wave_center'] < 8508.) and (row['wave_center'] > 8490.):
+            weights[(spectrum.wave >= row['wave_start']) & (spectrum.wave <= row['wave_end'])] += row['weights']
+
+            i = np.argmin(np.abs(spectrum.wave - row['wave_center']))
+            weights[i - 2:i + 3] = 0
+            return True
+
+        if (row['wave_center'] < 8553.) and (row['wave_center'] > 8530.):
+            weights[(spectrum.wave >= row['wave_start']) & (spectrum.wave <= row['wave_end'])] += row['weights']
+
+            i = np.argmin(np.abs(spectrum.wave - row['wave_center']))
+            weights[i - 2:i + 3] = 0
+            return True
+
+        if (row['wave_center'] < 8672.) and (row['wave_center'] > 8651.):
+            weights[(spectrum.wave >= row['wave_start']) & (spectrum.wave <= row['wave_end'])] += row['weights']
+
+            i = np.argmin(np.abs(spectrum.wave - row['wave_center']))
+            weights[i - 2:i + 3] = 0
+            return True
+
+        return False
+
+    def _mask_centers(self, row: pd.Series, lines: Union[list, np.ndarray], weights: np.ndarray, spectrum: Spectrum):
+        for center, npix, logg_min, logg_max in lines:
+            if (row['wave_start'] < center) and (row['wave_end'] > center) and (self._logg < logg_max) and (
+                    self._logg >= logg_min):
+                weights[(spectrum.wave >= row['wave_start']) & (spectrum.wave <= row['wave_end'])] += row['weights']
+
+                i = np.argmin(np.abs(spectrum.wave - row['wave_center']))
+
+                if npix % 2 == 0:
+                    weights[int(i-npix//2):int(i+npix//2)] = 0
+                else:
+                    weights[int(i-npix//2):int(i+npix//2+1)] = 0
+
+                return True
+
+        return False
 
 
 __all__ = ['WeightFromGridNearest']

@@ -187,7 +187,7 @@ class ParamsFit(MainRoutine):
         return params
 
     def fit_parameters(self) -> List[str]:
-        """Get list of parameters fitted by this routine that. Exclude fixed parameters.
+        """Get list of parameters fitted by this routine. Exclude fixed parameters.
 
         Returns:
             List of parameter names (including prefix) fitted by this routine.
