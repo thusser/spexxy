@@ -651,6 +651,25 @@ class Spectrum(object):
         """Normalize spectrum to an integrated value of one."""
         self.flux /= scipy.integrate.trapz(self.flux, self.wave)
 
+    def norm_at_wavelength(self, wave: float = 5000, width: float = None):
+        """Normalize spectrum so that flux at given wavelength is one. If width>0 and not None, use average of region.
+
+        Args:
+            wave: Wavelength to norm to.
+            width: Width of region to average.
+        """
+
+        if width is None:
+            # get flux at wavelength
+            flux = self.flux[self.index_of_wave(wave)]
+        else:
+            # get average in range
+            idx = self.indices_of_wave_range(wave - 0.5 * width, wave + 0.5 * width)
+            flux = np.mean(self.flux[idx[0]:idx[1]])
+
+        # divide
+        self.flux /= flux
+
     def __truediv__(self, other: Union['Spectrum', np.ndarray, float, int]) -> 'Spectrum':
         """Divide my flux with something else and return result.
 
