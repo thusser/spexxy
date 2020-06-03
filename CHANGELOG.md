@@ -2,7 +2,9 @@
 
 ### v2.4
 * Re-organized isochrones classes, added MultiIsochrone for external files
-* added different polynomials and sanity check to "isochrone appl"
+* added different polynomials and sanity check to "isochrone apply"
+* moved executables into their own module and use entry_points instead of scripts in setup.py
+* added new continuum class PeakToPeak (by B. Giesers)
 
 ### v2.3 (2019-11-15)
 * Added iterative fitting in MultiMain (by B. Bischoff).
