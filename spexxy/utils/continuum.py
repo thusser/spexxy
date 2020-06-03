@@ -10,12 +10,13 @@ from numpy import polynomial
 class Continuum(object):
     """Base class for all continuum fitting classes."""
 
-    def __init__(self, poly: str = "polynomial", poly_degree: int = 7):
+    def __init__(self, poly: str = "polynomial", poly_degree: int = 7, spline_type: str = 'cubic'):
         """Initialize a new Continuum
 
         Args:
-            poly: Type of polynomial.
+            poly: Type of polynomial ('polynomial', 'chebyshev', or 'legendre') or 'spline'.
             poly_degree: Degree of polynomial.
+            spline_type: Type of spline ('quadratic', 'cubic')
         """
 
         # polynomial function or spline?
@@ -28,8 +29,9 @@ class Continuum(object):
                 'legendre': polynomial.Legendre
             }[poly]
 
-        # polynomial degree
-        self._degree = poly_degree
+        # store
+        self._poly_degree = poly_degree
+        self._spline_type = spline_type
 
     def _fit_poly(self, xin: np.ndarray, yin: np.ndarray, xout: np.ndarray = None) -> np.ndarray:
         """Fit a polynomial to the data and return it.
@@ -51,7 +53,7 @@ class Continuum(object):
         # do actual fitting
         if self._poly_func is not None:
             # fit with a polynomial
-            result = self._poly_func.fit(xin, yin, deg=self._degree)
+            result = self._poly_func.fit(xin, yin, deg=self._poly_degree)
 
             # evaluate polynomial at xout
             return result(xout)
@@ -289,4 +291,196 @@ class Regions(Continuum):
         return self._fit_poly(xx, yy, xout=x)
 
 
-__all__ = ['Continuum', 'MaximumBin', 'Regions', 'SigmaClipping']
+class PeakToPeak(Continuum):
+    """Derives continuum from a ptp optimization.
+
+    from "Spectroscopy of Binaries in Globular Clusters"
+    by Benjamin Giesers
+    https://ediss.uni-goettingen.de/handle/21.11130/00-1735-0000-0005-13B4-A
+    """
+
+    def __init__(self, model_x: np.ndarray, model_y: np.ndarray, min_bunch_size: int = 3, max_ptp: float = 0.001,
+                 threshold: float = 0.9995, iterations: int = 4, bin_size: float = 100,
+                 continuum_points: np.ndarray = None, to_mask: List[Tuple[float, float]] = None,
+                 standard_mask: bool = True, *args, **kwargs):
+        """Normalize spectrum with the help of a fitted model (the model could also be the spectrum itself!)
+
+
+        Args:
+            model_x: Array of model wavelength points
+            model_y: Array of model flux points.
+            min_bunch_size: The minimum number of coherent flux points within a continuum bunch.
+            max_ptp: The maximum peak to peak deviation of flux points within a continuum bunch.
+            threshold: Threshold to filter wrong (local minima) continuum bunches (comparison with neighbor bunches).
+            iterations: Filter iterations to find wrong continuum bunches.
+            bin_size: Wavelength bins to calculate (spline fit) interpolated continuum.
+            continuum_points: Definitive mask of continuum points in spectrum (wavelength). Will be ignored if None.
+            to_mask: Wavelength regions [min, max] to mask, where continuum will not be detected. If None standard set is taken.
+            standard_mask: Should a standard mask for broad lines be applied?
+        """
+        Continuum.__init__(self, *args, **kwargs)
+
+        # store
+        self._min_bunch_size = min_bunch_size
+        self._max_ptp = max_ptp
+        self._threshold = threshold
+        self._iterations = iterations
+        self._bin_size = bin_size
+
+        # mask tellurics and wings of deep absorptions
+        if to_mask is None:
+            to_mask = []
+        if standard_mask is True:
+            to_mask += [[4000, 4768], [4810, 4930], [5763, 5775], [5877, 5898],
+                        [6266, 6277], [6515, 6640], [9333, 10000]]
+        self._mask = np.ones(len(model_x), dtype=bool)
+        for m in to_mask:
+            self._mask &= (model_x < m[0]) | (model_x > m[1])
+
+        # get continuum points and continuum in model spectrum
+        self._cont = self._get_continuum_in_model(model_x, model_y)
+
+        # if continuum_points is set, use them definitely
+        if continuum_points is not None:
+            self._cont |= continuum_points
+
+    def __call__(self, x: np.ndarray, y: np.ndarray, valid: np.ndarray = None) -> np.ndarray:
+        """Calculate the continuum.
+
+        Args:
+            x: x array for continuum to fit.
+            y: y array for continuum to fit.
+            valid: Valid pixels mask.
+
+        Returns:
+            Array containing calculated continuum.
+        """
+
+        # create continuum spectrum
+        cont_x = x[self._cont & self._mask & ~np.isnan(y)]
+        cont_y = y[self._cont & self._mask & ~np.isnan(y)]
+
+        # bin continuum points in spectrum
+        bin_wave = []
+        bin_flux = []
+        for ind in range(int((np.max(x) - np.min(x)) / self._bin_size) + 1):
+            slc = (cont_x > np.min(x) + ind * self._bin_size) & (cont_x < np.min(x) + (ind + 1) * self._bin_size)
+            if len(cont_x[slc]) > 2:
+                bin_wave.append(np.mean(cont_x[slc]))
+                bin_flux.append(np.median(cont_y[slc]))
+
+        # deal with boundary conditions
+        bin_wave.append(np.max(x))
+        bin_flux.append(bin_flux[-1])
+        bin_wave.insert(0, np.min(x))
+        bin_flux.insert(0, bin_flux[0])
+
+        # fit continuum
+        return self._fit_poly(bin_wave, bin_flux, xout=x)
+
+    def _get_continuum_in_model(self, model_x: np.ndarray, model_y: np.ndarray) -> np.ndarray:
+        """Find continuum points in model spectrum
+
+        Args:
+            model_x: Array of model wavelength points
+            model_y: Array of model flux points.
+
+        Returns:
+            Boolean mask with continuum areas.
+        """
+
+        # first guess of continuum in model
+        cont, bunches, bunch_index = self._determine_continuum_bunches(model_y)
+        cont = self._get_filtered_continuum(cont, model_y, bunches, bunch_index)
+
+        # normalize model
+        fit = np.poly1d(np.polyfit(model_x[cont & self._mask], model_y[cont & self._mask], 4))
+        model_cont = fit(model_x)
+        model_norm = model_y / model_cont
+
+        # find continuum points in normalized model
+        cont, bunches, bunch_index = self._determine_continuum_bunches(model_norm)
+        return self._get_filtered_continuum(cont, model_norm, bunches, bunch_index)
+
+    def _determine_continuum_bunches(self, y) -> Tuple[np.ndarray, List[int], np.ndarray]:
+        """Determine bunches of continuum in given spectrum.
+
+        Args:
+            y: Array of spectrum flux points
+
+        Returns:
+            Tuple containing:
+                - Mask of continuum points
+                - List of bunch names
+                - Mask with bunch names
+        """
+
+        continuum = []
+        bunches = []
+        bunch_index = []
+        start = 0
+        # go through spectrum
+        while start < len(y):
+            # reset peak to peak value and size of bunch
+            ptp = 0
+            size = 0
+            # create bunch until max_ptp exceeded or end of spectrum reached
+            while ptp < self._max_ptp and start + size < len(y):
+                size += 1
+                ptp = np.ptp(y[start:start + size] / np.median(y))
+
+            # reduce size by 1, cause last point is not continuum
+            size -= 1
+
+            # fulfilling continuum criteria?
+            if size >= self._min_bunch_size:
+                continuum += list(np.ones(size, dtype=bool))
+
+                # store new bunch
+                new_bunch = len(bunches) + 1
+                bunches.append(new_bunch)
+
+                bunch_index += list(np.ones(size, dtype=int) * new_bunch)
+                start += size
+            else:
+                continuum += [False]
+
+                bunch_index += [0]
+                start += 1
+
+        return np.array(continuum), bunches, np.array(bunch_index)
+
+    def _get_filtered_continuum_bunches(self, y, bunches, bunch_index):
+        # store first bunch, cause we can only start filtering with second
+        filtered_bunches = [bunches[0]]
+
+        # calculate median of all bunches spectrum flux
+        median = {}
+        for bunch in bunches:
+            median[bunch] = np.median(y[bunch_index == bunch])
+
+        # compare each bunch with neighbors, starting with second and ending with second last
+        for i in range(1, len(bunches) - 1):
+            if median[bunches[i]] > self._threshold * median[bunches[i - 1]] or \
+                    median[bunches[i]] > self._threshold * median[bunches[i + 1]]:
+                filtered_bunches.append(bunches[i])
+
+        # store last bunch
+        filtered_bunches.append(bunches[-1])
+
+        return filtered_bunches
+
+    def _get_filtered_continuum(self, continuum, spectrum_flux, bunches, bunch_index):
+        # iterate to identify wrong continuum bunches
+        for _ in range(self._iterations):
+            bunches = self._get_filtered_continuum_bunches(spectrum_flux, bunches, bunch_index)
+
+        # remove wrong continuum bunches from continuum
+        for i, bunch in enumerate(bunch_index):
+            if bunch not in bunches:
+                continuum[i] = False
+
+        return continuum
+
+
+__all__ = ['Continuum', 'MaximumBin', 'Regions', 'SigmaClipping', 'PeakToPeak']
