@@ -240,7 +240,7 @@ class SigmaClipping(Continuum):
 
 
 class Regions(Continuum):
-    """Derives continum from given regions."""
+    """Derives continuum from given regions."""
 
     def __init__(self, regions: List[Tuple[float, float]], average: bool = True, *args, **kwargs):
         """Initializes new Regions continuum
