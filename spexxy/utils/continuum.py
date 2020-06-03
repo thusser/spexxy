@@ -483,4 +483,4 @@ class PeakToPeak(Continuum):
         return continuum
 
 
-__all__ = ['Continuum', 'MaximumBin', 'Regions', 'SigmaClipping']
+__all__ = ['Continuum', 'MaximumBin', 'Regions', 'SigmaClipping', 'PeakToPeak']
