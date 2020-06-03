@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 import yaml
 import argparse
 import logging
