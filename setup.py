@@ -9,7 +9,12 @@ setup(
     author='Tim-Oliver Husser',
     author_email='thusser@uni-goettingen.de',
     packages=find_packages(include=['spexxy', 'spexxy.*']),
-    scripts=['bin/spexxy', 'bin/spexxytools'],
+    entry_points={
+        'console_scripts': [
+            'spexxy=spexxy.cli.spexxy:main',
+            'spexxytools=spexxy.cli.spexxytools:main',
+        ]
+    },
     include_package_data=True,
     install_requires=[
         'scipy',
@@ -17,6 +22,7 @@ setup(
         'astropy',
         'pandas',
         'lmfit',
-        'pyyaml'
+        'pyyaml',
+        'matplotlib'
     ]
 )
