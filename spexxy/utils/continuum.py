@@ -305,6 +305,9 @@ class PeakToPeak(Continuum):
                  standard_mask: bool = True, *args, **kwargs):
         """Normalize spectrum with the help of a fitted model (the model could also be the spectrum itself!)
 
+        It is recommended to run this normalization twice, first with a low-degree polynomial and then with a
+        spline. Alternatively, the first iteration can be done using another method like MaxBin.
+
 
         Args:
             model_x: Array of model wavelength points
@@ -338,7 +341,8 @@ class PeakToPeak(Continuum):
             self._mask &= (model_x < m[0]) | (model_x > m[1])
 
         # get continuum points and continuum in model spectrum
-        self._cont = self._get_continuum_in_model(model_x, model_y)
+        cont, bunches, bunch_index = self._determine_continuum_bunches(model_y)
+        self._cont = self._get_filtered_continuum(cont, model_y, bunches, bunch_index)
 
         # if continuum_points is set, use them definitely
         if continuum_points is not None:
@@ -377,30 +381,6 @@ class PeakToPeak(Continuum):
 
         # fit continuum
         return self._fit_poly(bin_wave, bin_flux, xout=x)
-
-    def _get_continuum_in_model(self, model_x: np.ndarray, model_y: np.ndarray) -> np.ndarray:
-        """Find continuum points in model spectrum
-
-        Args:
-            model_x: Array of model wavelength points
-            model_y: Array of model flux points.
-
-        Returns:
-            Boolean mask with continuum areas.
-        """
-
-        # first guess of continuum in model
-        cont, bunches, bunch_index = self._determine_continuum_bunches(model_y)
-        cont = self._get_filtered_continuum(cont, model_y, bunches, bunch_index)
-
-        # normalize model
-        fit = np.poly1d(np.polyfit(model_x[cont & self._mask], model_y[cont & self._mask], 4))
-        model_cont = fit(model_x)
-        model_norm = model_y / model_cont
-
-        # find continuum points in normalized model
-        cont, bunches, bunch_index = self._determine_continuum_bunches(model_norm)
-        return self._get_filtered_continuum(cont, model_norm, bunches, bunch_index)
 
     def _determine_continuum_bunches(self, y) -> Tuple[np.ndarray, List[int], np.ndarray]:
         """Determine bunches of continuum in given spectrum.
