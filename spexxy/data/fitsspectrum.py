@@ -146,8 +146,7 @@ class FitsSpectrum(object):
                 fits_hdu.header['WAVE'] = self._fits[0].header['WAVE']
 
         # create spectrum and return it
-        self._hdu_as_spectrum[fits_hdu] = SpectrumFitsHDU(fits_hdu,
-                                                          hdu_list=self._fits)
+        self._hdu_as_spectrum[fits_hdu] = SpectrumFitsHDU(fits_hdu, hdu_list=self._fits)
         return self._hdu_as_spectrum[fits_hdu]
 
     def __setitem__(self, hdu_name, spec):
