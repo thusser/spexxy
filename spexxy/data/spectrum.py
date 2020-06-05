@@ -1030,6 +1030,11 @@ class SpectrumFitsHDU(Spectrum):
         """FITS header object"""
         return self._hdu.header
 
+    @property
+    def primary(self):
+        """Returns whether this HDU is supposed to be a primary HDU"""
+        return self._primary
+
     def hdu(self):
         """Returns the updated HDU for this spectrum"""
 
@@ -1039,8 +1044,7 @@ class SpectrumFitsHDU(Spectrum):
         # need to create HDU?
         if not self._hdu:
             # create HDU
-            self._hdu = fits.PrimaryHDU(flux) \
-                if self._primary else fits.ImageHDU(flux)
+            self._hdu = fits.PrimaryHDU(flux) if self._primary else fits.ImageHDU(flux)
         else:
             # just set data
             self._hdu.data = flux
