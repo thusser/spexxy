@@ -5,6 +5,7 @@
 * added different polynomials and sanity check to "isochrone apply"
 * moved executables into their own module and use entry_points instead of scripts in setup.py
 * added new continuum class PeakToPeak (by B. Giesers)
+* fixed FitsSpectrum to allow for setting the primary HDU
 
 ### v2.3 (2019-11-15)
 * Added iterative fitting in MultiMain (by B. Bischoff).
