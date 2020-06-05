@@ -176,7 +176,7 @@ class FitsSpectrum(object):
         # is it a primary HDU?
         if spec.primary:
             # yes, find and remove existing one
-            prim = list(filter(lambda hdu: hdu.primary, self._fits))
+            prim = list(filter(lambda hdu: isinstance(hdu, fits.PrimaryHDU), self._fits))
             if len(prim) > 0:
                 # remove from list of HDUs
                 self._fits.remove(prim[0])
