@@ -643,32 +643,48 @@ class Spectrum(object):
         self._wave_step = 0.
         self._wave_mode = m
 
-    def norm_to_mean(self):
-        """Normalize spectrum to mean flux."""
-        self.flux /= np.mean(self.flux)
+    def norm_to_mean(self) -> float:
+        """Normalize spectrum to mean flux.
 
-    def norm_to_one(self):
-        """Normalize spectrum to an integrated value of one."""
-        self.flux /= scipy.integrate.trapz(self.flux, self.wave)
+        Returns:
+            Factor the spectrum has been divided by.
+        """
+        norm = np.mean(self.flux)
+        self.flux /= norm
+        return norm
 
-    def norm_at_wavelength(self, wave: float = 5000, width: float = None):
+    def norm_to_one(self) -> float:
+        """Normalize spectrum to an integrated value of one.
+
+        Returns:
+            Factor the spectrum has been divided by.
+        """
+        norm = scipy.integrate.trapz(self.flux, self.wave)
+        self.flux /= norm
+        return norm
+
+    def norm_at_wavelength(self, wave: float = 5000, width: float = None) -> float:
         """Normalize spectrum so that flux at given wavelength is one. If width>0 and not None, use average of region.
 
         Args:
             wave: Wavelength to norm to.
             width: Width of region to average.
+
+        Returns:
+            Factor the spectrum has been divided by.
         """
 
         if width is None:
             # get flux at wavelength
-            flux = self.flux[self.index_of_wave(wave)]
+            norm = self.flux[self.index_of_wave(wave)]
         else:
             # get average in range
             idx = self.indices_of_wave_range(wave - 0.5 * width, wave + 0.5 * width)
-            flux = np.mean(self.flux[idx[0]:idx[1]])
+            norm = np.mean(self.flux[idx[0]:idx[1]])
 
-        # divide
-        self.flux /= flux
+        # divide and return
+        self.flux /= norm
+        return norm
 
     def __truediv__(self, other: Union['Spectrum', np.ndarray, float, int]) -> 'Spectrum':
         """Divide my flux with something else and return result.
