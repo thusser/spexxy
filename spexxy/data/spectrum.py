@@ -17,6 +17,9 @@ from ..utils.exception import *
 class Spectrum(object):
     """A class representing a single spectrum."""
 
+    """Data type for spectra."""
+    dtype = np.float64
+
     class Mode(Enum):
         """Spectrum wavelength mode."""
         LAMBDA = 0
@@ -67,7 +70,7 @@ class Spectrum(object):
         # got a ref_spec?
         if spec is not None:
             # initialize from ref_spec
-            self.flux = spec.flux.copy() if copy_flux else None
+            self.flux = spec.flux.astype(Spectrum.dtype) if copy_flux else None
             self._wave_start = spec.wave_start
             self._wave_step = spec.wave_step
             self._wavelength = None if spec._wavelength is None else spec._wavelength.copy()
@@ -100,7 +103,7 @@ class Spectrum(object):
                 # if no flux is given, initialize it empty
                 if flux is None:
                     # create flux array and fill with NaNs
-                    flux = np.empty((wave_count))
+                    flux = np.empty((wave_count), dtype=Spectrum.dtype)
                     flux[:] = np.nan
 
                     # if also no valid array is given, it's all invalid now
@@ -640,13 +643,48 @@ class Spectrum(object):
         self._wave_step = 0.
         self._wave_mode = m
 
-    def norm_to_mean(self):
-        """Normalize spectrum to mean flux."""
-        self.flux /= np.mean(self.flux)
+    def norm_to_mean(self) -> float:
+        """Normalize spectrum to mean flux.
 
-    def norm_to_one(self):
-        """Normalize spectrum to an integrated value of one."""
-        self.flux /= scipy.integrate.trapz(self.flux, self.wave)
+        Returns:
+            Factor the spectrum has been divided by.
+        """
+        norm = np.mean(self.flux)
+        self.flux /= norm
+        return norm
+
+    def norm_to_one(self) -> float:
+        """Normalize spectrum to an integrated value of one.
+
+        Returns:
+            Factor the spectrum has been divided by.
+        """
+        norm = scipy.integrate.trapz(self.flux, self.wave)
+        self.flux /= norm
+        return norm
+
+    def norm_at_wavelength(self, wave: float = 5000, width: float = None) -> float:
+        """Normalize spectrum so that flux at given wavelength is one. If width>0 and not None, use average of region.
+
+        Args:
+            wave: Wavelength to norm to.
+            width: Width of region to average.
+
+        Returns:
+            Factor the spectrum has been divided by.
+        """
+
+        if width is None:
+            # get flux at wavelength
+            norm = self.flux[self.index_of_wave(wave)]
+        else:
+            # get average in range
+            idx = self.indices_of_wave_range(wave - 0.5 * width, wave + 0.5 * width)
+            norm = np.mean(self.flux[idx[0]:idx[1]])
+
+        # divide and return
+        self.flux /= norm
+        return norm
 
     def __truediv__(self, other: Union['Spectrum', np.ndarray, float, int]) -> 'Spectrum':
         """Divide my flux with something else and return result.
@@ -927,7 +965,7 @@ class SpectrumFitsHDU(Spectrum):
             self._primary = isinstance(hdu, fits.PrimaryHDU)
 
             # get data from HDU
-            self.flux = hdu.data.copy()
+            self.flux = hdu.data.astype(Spectrum.dtype)
 
             # get header
             hdr = hdu.header
@@ -1008,6 +1046,11 @@ class SpectrumFitsHDU(Spectrum):
         """FITS header object"""
         return self._hdu.header
 
+    @property
+    def primary(self):
+        """Returns whether this HDU is supposed to be a primary HDU"""
+        return self._primary
+
     def hdu(self):
         """Returns the updated HDU for this spectrum"""
 
@@ -1017,8 +1060,7 @@ class SpectrumFitsHDU(Spectrum):
         # need to create HDU?
         if not self._hdu:
             # create HDU
-            self._hdu = fits.PrimaryHDU(flux) \
-                if self._primary else fits.ImageHDU(flux)
+            self._hdu = fits.PrimaryHDU(flux) if self._primary else fits.ImageHDU(flux)
         else:
             # just set data
             self._hdu.data = flux

@@ -11,7 +11,7 @@ import pandas as pd
 from spexxy.data import FitsSpectrum, Spectrum
 from spexxy.component import Component
 from spexxy.mask import Mask
-from spexxy.weight import Weight, WeightFromGridNearest, WeightFromGrid
+from spexxy.weight import Weight
 from spexxy.data import SpectrumFitsHDU
 from .main import MainRoutine
 from spexxy.tools.plot import plot_spectrum
@@ -164,10 +164,6 @@ class ParamsFit(MainRoutine):
         # weights
         self._weights = self.get_objects(weights, Weight, 'weights')
 
-        # values are set by MultiMain routine and are to choose the proper weights from a given grid
-        self.step = None
-        self.init_values = None
-
     def parameters(self) -> List[str]:
         """Get list of parameters fitted by this routine.
 
@@ -191,7 +187,7 @@ class ParamsFit(MainRoutine):
         return params
 
     def fit_parameters(self) -> List[str]:
-        """Get list of parameters fitted by this routine that. Exclude fixed parameters.
+        """Get list of parameters fitted by this routine. Exclude fixed parameters.
 
         Returns:
             List of parameter names (including prefix) fitted by this routine.
@@ -223,7 +219,7 @@ class ParamsFit(MainRoutine):
         """
 
         # call base and add columns Success
-        return MainRoutine.columns(self) + ['Success']
+        return MainRoutine.columns(self) + ['Success', 'RedChi2']
 
     @property
     def components(self) -> List[Component]:
@@ -266,11 +262,6 @@ class ParamsFit(MainRoutine):
         if self._weights is not None:
             # loop all weights
             for w in self._weights:
-                if isinstance(w, (WeightFromGridNearest, WeightFromGrid)):
-                    # set the iteration step and the initial values used to choose the weights from the given grid
-                    w.step = self.step
-                    w.init_values = self.init_values
-
                 # multiply weights array with new weights
                 self._weight *= w(self._spec, filename)
 
@@ -280,7 +271,7 @@ class ParamsFit(MainRoutine):
         # less than 50% of pixels valid?
         if np.sum(self._valid) < self._min_valid_pixels * len(self._valid):
             self.log.warning('Less then %d percent of pixels valid, skipping...', self._min_valid_pixels * 100)
-            return [None] * (len(self.columns()) - 1) + [False]
+            return [None] * (len(self.columns()) - 2) + [False, 0]
 
         # initialize multiplicative polynomial with ones
         self._mult_poly = Legendre(self._spec, self._poly_degree)
@@ -352,17 +343,24 @@ class ParamsFit(MainRoutine):
         # write results back to file
         self._write_results_to_file(filename, result, best_fit, stats)
 
+        # all components
+        components = self._cmps
+        if self._tellurics is not None:
+            components.append(self._tellurics)
+
         # build list of results and return them
         results = []
         for cmp in self._cmps:
+            # parse parameters
+            cmp.parse_params(result.params)
+
+            # loop params
             for n in cmp.param_names:
                 p = '%s%s' % (cmp.prefix, n)
-                results += [result.params[p].value, result.params[p].stderr]
-        if self._tellurics is not None:
-            for n in self._tellurics.param_names:
-                p = '%s%s' % (self._tellurics.prefix, n)
-                results += [result.params[p].value, result.params[p].stderr]
-        results += [success]
+                results += [cmp.parameters[n]['value'], cmp.parameters[n]['stderr']]
+
+        # success?
+        results += [success, result.redchi]
         return results
 
     def _load_spectrum(self, filename: str) -> (Spectrum, np.ndarray):
@@ -406,9 +404,18 @@ class ParamsFit(MainRoutine):
         for cmp in self._cmps + ([self._tellurics] if self._tellurics else []):
             values = []
             for name in cmp.param_names:
+                # get param
                 param = params[cmp.prefix + name]
+
+                # de-normalize?
+                p = cmp.parameters[name]
+                val, _ = cmp.denorm_param(name, param.value) if cmp.normalize else (param.value, None)
+
+                # show
                 if param.vary:
-                    values.append('%s=%.2f' % (name, param.value))
+                    values.append('%s=%.2f' % (name, val))
+
+            # print it
             if len(values) > 0:
                 messages.append('%s(%s)' % (cmp.prefix, ', '.join(values)))
 

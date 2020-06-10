@@ -79,7 +79,7 @@ class TestFitsSpectrum(unittest.TestCase):
         spec = SpectrumFitsHDU(flux=np.cos(np.arange(1000)), wave_start=3000, wave_step=1, primary=True)
 
         # set spectrum and close file
-        fs['PRIMARY'] = spec
+        fs[0] = spec
         fs.close()
 
         # open file with FitsSpectrum
@@ -106,7 +106,7 @@ class TestFitsSpectrum(unittest.TestCase):
         spec = SpectrumFitsHDU(flux=np.cos(np.arange(1000)), wave_start=1000, wave_step=0.5, primary=True)
 
         # set spectrum and close file
-        fs['PRIMARY'] = spec
+        fs[0] = spec
         fs.close()
 
         # open file with FitsSpectrum
@@ -128,19 +128,25 @@ class TestFitsSpectrum(unittest.TestCase):
         from spexxy.data.spectrum import SpectrumFitsHDU
 
         spec = SpectrumFitsHDU(flux=np.cos(np.arange(1000)), wave_start=1500, wave_step=0.25, primary=True)
+        spec2 = SpectrumFitsHDU(flux=np.cos(np.arange(1000)), wave_start=1500, wave_step=0.25, primary=False)
 
         # open file
+        with FitsSpectrum("test.fits", mode='w') as fs:
+            # set spectrum and close file
+            fs[0] = spec
+
+        # append
         with FitsSpectrum("test.fits", mode='rw') as fs:
             # set spectrum and close file
-            fs['TEST'] = spec
+            fs['TEST'] = spec2
 
         # pyfits check
         with fits.open("test.fits") as f:
             # need 2 HDUs
             self.assertEqual(len(f), 2)
             # get HDU names and check
-            hdu_names = [hdu.header['EXTNAME'] for hdu in f]
-            self.assertLessEqual(hdu_names, ['PRIMARY', 'TEST'])
+            hdu_names = [hdu.header['EXTNAME'] for hdu in f if 'EXTNAME' in hdu.header]
+            self.assertLessEqual(hdu_names, ['TEST'])
 
         # open file with FitsSpectrum
         with FitsSpectrum("test.fits", "r") as fs:

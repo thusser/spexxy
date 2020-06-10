@@ -146,8 +146,7 @@ class FitsSpectrum(object):
                 fits_hdu.header['WAVE'] = self._fits[0].header['WAVE']
 
         # create spectrum and return it
-        self._hdu_as_spectrum[fits_hdu] = SpectrumFitsHDU(fits_hdu,
-                                                          hdu_list=self._fits)
+        self._hdu_as_spectrum[fits_hdu] = SpectrumFitsHDU(fits_hdu, hdu_list=self._fits)
         return self._hdu_as_spectrum[fits_hdu]
 
     def __setitem__(self, hdu_name, spec):
@@ -164,27 +163,50 @@ class FitsSpectrum(object):
         if not isinstance(spec, SpectrumFitsHDU):
             raise ValueError('Spectrum must be instance of SpectrumFitsHDU.')
 
+        # check type
+        if hdu_name == 0 and not spec.primary:
+            raise ValueError('Cannot store non-primary HDU as 0.')
+        if hdu_name != 0 and spec.primary:
+            raise ValueError('Cannot store primary HDU with other name than 0.')
+
         # get hdu
         spec_hdu, wave_hdu = spec.hdu()
 
-        # name taken already?
-        if hdu_name in self._fits:
-            # get hdu of that name
-            exist_hdu = self.hdu(hdu_name)
+        # is it a primary HDU?
+        if spec.primary:
+            # yes, find and remove existing one
+            prim = list(filter(lambda hdu: isinstance(hdu, fits.PrimaryHDU), self._fits))
+            if len(prim) > 0:
+                # remove from list of HDUs
+                self._fits.remove(prim[0])
+                # remove from mapping
+                if prim[0] in self._hdu_as_spectrum:
+                    del self._hdu_as_spectrum[prim[0]]
 
-            # and the owner is not the given spectrum?
-            if spec_hdu != exist_hdu:
-                # get index and delete HDU
-                del self._fits[hdu_name]
-                if exist_hdu in self._hdu_as_spectrum:
-                    del self._hdu_as_spectrum[exist_hdu]
+            # add it
+            self._fits.insert(0, spec_hdu)
+            self._hdu_as_spectrum[spec_hdu] = spec
 
-        # rename it
-        spec_hdu.name = hdu_name
+        else:
+            # extension HDU
+            # name taken already?
+            if hdu_name in self._fits:
+                # get hdu of that name
+                exist_hdu = self.hdu(hdu_name)
 
-        # add to lists
-        self._fits.append(spec_hdu)
-        self._hdu_as_spectrum[spec_hdu] = spec
+                # and the owner is not the given spectrum?
+                if spec_hdu != exist_hdu:
+                    # get index and delete HDU
+                    del self._fits[hdu_name]
+                    if exist_hdu in self._hdu_as_spectrum:
+                        del self._hdu_as_spectrum[exist_hdu]
+
+            # rename it
+            spec_hdu.name = hdu_name
+
+            # add to lists
+            self._fits.append(spec_hdu)
+            self._hdu_as_spectrum[spec_hdu] = spec
 
     def __delitem__(self, hdu_name):
         if hdu_name in self._fits:
@@ -202,6 +224,11 @@ class FitsSpectrum(object):
     def spectrum(self):
         """Returns main spectrum, short vor FitsSpectrum[0]"""
         return self[0]
+
+    @spectrum.setter
+    def spectrum(self, spec):
+        """Sets main spectrum, short vor FitsSpectrum[0]=spec"""
+        self[0] = spec
 
     def results(self, namespace):
         """Returns a ResultsFITS object for the given namespace.

@@ -21,12 +21,19 @@ def add_parser(subparsers):
     parser.add_argument('--filter1-iso', help='First filter in isochrone to use (--filter1 if empty)', type=str)
     parser.add_argument('--filter2-iso', help='Second filter in isochrone to use (--filter2 if empty)', type=str)
     parser.add_argument('--nearest', help='Use nearest neighbour instead of polynomial', action='store_true')
+    parser.add_argument('--check-teff', help='Only apply values if Teff within range', type=float, nargs=2)
+    parser.add_argument('--check-logg', help='Only apply values if logg within range', type=float, nargs=2)
+    parser.add_argument('--check-mact', help='Only apply values if Mact within range', type=float, nargs=2)
+
+    group_ex = parser.add_mutually_exclusive_group()
+    group_ex.add_argument('--quadratic', help='Use quadratic polynomial instead of linear one', action='store_true')
+    group_ex.add_argument('--cubic', help='Use cubic polynomial instead of linear one', action='store_true')
 
 
 def run(args):
     # get isochrone
     logging.info("Loading isochrone from %s...", args.isochrone)
-    isochrone = Isochrone.load(args.isochrone)
+    isochrone = Isochrone(args.isochrone)
 
     # get filters in isochrone
     iso_filter1 = args.filter1.upper() if args.filter1_iso is None else args.filter1_iso.upper()
@@ -62,10 +69,11 @@ def run(args):
     if args.nearest:
         ip_nearest = isochrone.nearest(iso_filter1, iso_filter2)
     else:
-        ip_teff = isochrone.interpolator('Teff', iso_filter1, iso_filter2)
-        ip_logg = isochrone.interpolator('logg', iso_filter1, iso_filter2)
-        ip_mact = isochrone.interpolator('M_act', iso_filter1, iso_filter2)
-        ip_mini = isochrone.interpolator('M_ini', iso_filter1, iso_filter2)
+        mode = 'quadratic' if args.quadratic else 'cubic' if args.cubic else 'linear'
+        ip_teff = isochrone.interpolator('Teff', iso_filter1, iso_filter2, mode=mode)
+        ip_logg = isochrone.interpolator('logg', iso_filter1, iso_filter2, mode=mode)
+        ip_mact = isochrone.interpolator('M_act', iso_filter1, iso_filter2, mode=mode)
+        ip_mini = isochrone.interpolator('M_ini', iso_filter1, iso_filter2, mode=mode)
 
     # loop all photometry
     logging.info('Applying isochrone to all stars in photometry...')
@@ -98,6 +106,14 @@ def run(args):
                 logg = (ip_logg(v - i, v), None)
                 Mini = (ip_mini(v - i, v), None)
                 Mact = (ip_mact(v - i, v), None)
+
+            # check
+            valid = True
+            valid &= args.check_teff is None or args.check_teff[0] <= Teff[0] <= args.check_teff[1]
+            valid &= args.check_logg is None or args.check_logg[0] <= logg[0] <= args.check_logg[1]
+            valid &= args.check_mact is None or args.check_mact[0] <= Mact[0] <= args.check_mact[1]
+            if not valid:
+                continue
 
             # write results to file
             if args.id:

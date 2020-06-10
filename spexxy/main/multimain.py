@@ -1,27 +1,17 @@
-import sys
-import lmfit
 import numpy as np
-import scipy.linalg
-from lmfit import Parameters
-from lmfit.minimizer import MinimizerResult
 from typing import List, Dict
 
-from spexxy.data import FitsSpectrum, Spectrum
-from spexxy.component import Component
-from spexxy.mask import Mask
-from spexxy.weight import Weight
-from spexxy.data import SpectrumFitsHDU
-from spexxy.object import spexxyObject
+from spexxy.component import Component, TelluricsComponent
 from .main import MainRoutine
 
 
 class MultiMain(MainRoutine):
     """MultiRun iterates over a given set of main routines and runs them sequentially."""
 
-    def __init__(self, routines: List = None, iterations: int = 1, max_iterations: int = None,
+    def __init__(self, routines: List = None, iterations: int = None, max_iterations: int = 8,
                  threshold: Dict[str, float] = None, poly_degree: int = 40, damped: bool = True,
-                 factors: list = (0.3, 0.1), *args, **kwargs):
-        """Initialize a new MultiRun object
+                 factors: list = (0.7, 0.3), *args, **kwargs):
+        """Initialize a new MultiMain object
 
         Args:
             routines: List of main routines to run.
@@ -32,9 +22,9 @@ class MultiMain(MainRoutine):
                        considered as converged.
             poly_degree: Degree of Legendre polynomial used for the continuum fit.
             damped: If True the fit is repeated with a damping factor in case the fit does not converge.
-            factors: List od damping factors used if the fit does not converge.
+            factors: List of damping factors used if the fit does not converge.
         """
-        spexxyObject.__init__(self, *args, **kwargs)
+        MainRoutine.__init__(self, *args, **kwargs)
 
         # remember variables
         self._iterations = iterations
@@ -65,7 +55,7 @@ class MultiMain(MainRoutine):
     def columns(self) -> List[str]:
         """Get list of columns returned by __call__.
 
-        The returned list shoud include the list from parameters().
+        The returned list should include the list from parameters().
 
         Returns:
             List of columns returned by __call__.
@@ -106,65 +96,48 @@ class MultiMain(MainRoutine):
         results_total = {p: [] for p in fit_params}
 
         # if routine checks for convergence set the threshold now
-        if self._max_iterations is not None:
-            # if threshold is not given set it now
-            if self._threshold is None:
-                self._threshold = {}
-                # loop over components
-                for cmp_name, cmp in self.objects['components'].items():
-                    # loop over all parameters of this component
-                    for param_name in cmp.param_names:
-                        # loop over all fit parameters
-                        for p in fit_params:
-                            # if component parameter is a fit parameter set its threshold
-                            if param_name in p:
-                                # set default thresholds for each parameter
-                                if param_name.lower() == 'teff':
-                                    self._threshold[p] = 25
-                                elif param_name.lower() == 'feh':
-                                    self._threshold[p] = 0.05
-                                elif param_name.lower() == 'logg':
-                                    self._threshold[p] = 0.05
-                                elif param_name.lower() == 'alpha':
-                                    self._threshold[p] = 0.05
-                                elif param_name == 'v':
-                                    self._threshold[p] = 1.
-                                elif param_name == 'sig':
-                                    self._threshold[p] = 1.
-            else:
-                # if threshold is given, check if dictionary keys correspond to parameter names, if not add the cmp prefix
-                tmp = {}
-                # loop over components
-                for cmp_name in self.objects['components']:
-                    for p in self._threshold:
-                        # adjust keys in dictionary if necessary
-                        if p in fit_params:
-                            continue
-                        elif cmp_name + ' ' + p in fit_params:
-                            tmp[cmp_name + ' ' + p] = self._threshold[p]
-                        else:
-                            raise IndexError
+        if self._iterations is None and self._max_iterations > 1:
+            # initialize thresholds
+            tmp = {}
+            for cmp_name, cmp in self.objects['components'].items():
+                # loop over all parameters of this component
+                for param_name in cmp.param_names:
+                    if param_name.lower() == 'teff':
+                        tmp['{} {}'.format(cmp.prefix, param_name)] = 25.
+                    elif param_name.lower() == 'v' or param_name.lower() == 'sig':
+                        tmp['{} {}'.format(cmp.prefix, param_name)] = 1.
+                    else:
+                        tmp['{} {}'.format(cmp.prefix, param_name)] = 0.05
 
-                self._threshold = tmp
+            if self._threshold is not None:
+                for cmp_name, values in self._threshold.items():
+                    for param, threshold in values.items():
+                        tmp['{} {}'.format(cmp_name, param)] = np.float(threshold)
+
+            self._threshold = tmp
 
             maxiter = self._max_iterations
         else:
-            maxiter = self._iterations
+            if self._iterations is None and (self._max_iterations == 1 or self._max_iterations is None):
+                maxiter = 1
+            else:
+                maxiter = self._iterations
 
-        # save initial values of components
-        init_values = {}
-        for cmp_name, cmp in self.objects['components'].items():
-            for param_name in cmp.param_names:
-                init_values['{} {}'.format(cmp.prefix, param_name)] = cmp[param_name]
+            self._max_iterations = None
 
         # loop iterations
         for it in range(maxiter):
+            self.objects['init_iter'] = {}
+            for cmp_name, cmp in self.objects['components'].items():
+                if isinstance(cmp, TelluricsComponent):
+                    continue
+
+                self.objects['init_iter'][cmp_name] = Component(name=cmp_name)
+                for param_name in cmp.param_names:
+                    self.objects['init_iter'][cmp_name].set(name=param_name, value=cmp[param_name])
+
             # loop main routines
             for routine in self._routines:
-                # forward iteration step and initial values to routine
-                routine.step = it + 1
-                routine.init_values = init_values
-
                 # set poly degree for this routine
                 routine._poly_degree = self._poly_degree
 
@@ -190,9 +163,6 @@ class MultiMain(MainRoutine):
 
                 # was iteration a success?
                 success.append(res[-1])
-
-            # update initial values by most recent fit results
-            init_values = {p: results[p][0] for p in init_values}
 
             # check for convergence?
             if self._max_iterations is not None:
@@ -242,7 +212,6 @@ class MultiMain(MainRoutine):
                     res.append(it + 1)
                     res.append(success)
                     res.append(converged)
-                    res.append(1.)
 
                     return res
 
@@ -251,29 +220,29 @@ class MultiMain(MainRoutine):
             for p in self._threshold:
                 self._threshold[p] /= 3
 
+            iterations = self._max_iterations
             for damping_factor in self._factors:
                 # reset parameters to initial values
                 for cmp_name, cmp in self.objects['components'].items():
                     cmp.init(filename)
 
-                # save initial values of components
-                init_values = {}
-                for cmp_name, cmp in self.objects['components'].items():
-                    for param_name in cmp.param_names:
-                        init_values['{} {}'.format(cmp.prefix, param_name)] = cmp[param_name]
-
-                results_damped = {p: None for p in parameters}
                 results = {p: None for p in parameters}
                 success = []
                 results_total = {p: [] for p in fit_params}
 
                 # loop over fit parameters
                 for it in range(3 * maxiter):
-                    for routine in self._routines:
-                        # forward iteration step and initial values to routine
-                        routine.step = it + 1
-                        routine.init_values = init_values
+                    self.objects['init_iter'] = {}
+                    for cmp_name, cmp in self.objects['components'].items():
+                        if isinstance(cmp, TelluricsComponent):
+                            continue
 
+                        self.objects['init_iter'][cmp_name] = Component(name=cmp_name)
+                        for param_name in cmp.param_names:
+                            self.objects['init_iter'][cmp_name].set(name=param_name, value=cmp[param_name])
+
+                    # loop main routines
+                    for routine in self._routines:
                         # set poly degree for this routine
                         routine._poly_degree = self._poly_degree
 
@@ -291,41 +260,37 @@ class MultiMain(MainRoutine):
                                 # initialize dictionary
                                 if results[p] is None:
                                     results[p] = [res[i * 2], res[i * 2 + 1]]
-                                    results_damped[p] = [res[i * 2], res[i * 2 + 1]]
 
                                 continue
 
                             # copy both results and errors!
                             results[p] = [res[i * 2], res[i * 2 + 1]]
-                            results_damped[p] = [res[i * 2], res[i * 2 + 1]]
+
+                        # calculate damped result
+                        for p in params:
+                            if p not in routine.fit_parameters():
+                                continue
+
+                            for cmp_name, cmp in self.objects['components'].items():
+                                if not p.startswith(cmp.prefix):
+                                    continue
+
+                                name = p[len(cmp.prefix)+1:]
+
+                                cmp[name] = (1 - damping_factor) * self.objects['init_iter'][cmp_name][
+                                    name] + damping_factor * results[p][0]
+                                results[p][0] = (1 - damping_factor) * self.objects['init_iter'][cmp_name][
+                                    name] + damping_factor * results[p][0]
 
                         # was iteration a success?
                         success.append(res[-1])
-
-                        # calculate iteration step
-                        delta = {}
-                        for p in routine.fit_parameters():
-                            delta[p] = damping_factor * (results[p][0] - init_values[p])
-
-                        for p in routine.fit_parameters():
-                            init_values[p] += delta[p]
-                            results_damped[p][0] = init_values[p]
-
-                        # set new initial values for next iteration step
-                        for cmp_name, cmp in self.objects['components'].items():
-                            for param_name in cmp.param_names:
-                                if '{} {}'.format(cmp.prefix, param_name) in routine.fit_parameters():
-                                    cmp[param_name] = init_values['{} {}'.format(cmp.prefix, param_name)]
-
-                    # update initial values by most recent fit results
-                    init_values = {p: results_damped[p][0] for p in init_values}
 
                     # save results of all steps
                     for p in fit_params:
                         results_total[p].append(results[p][0])
 
-                    # run at least for 2 iterations
-                    if it == 0:
+                    # run at least for max_iterations // 2 iterations
+                    if it < self._max_iterations // 2:
                         continue
 
                     # check for convergence
@@ -342,12 +307,14 @@ class MultiMain(MainRoutine):
                             res.extend(results[p])
 
                         # add iteration, success and convergence to results
-                        res.append(it + 1)
+                        res.append(iterations + it + 1)
                         res.append(success)
                         res.append(converged)
                         res.append(damping_factor)
 
                         return res
+
+                iterations += 3 * self._max_iterations
 
             # fit is successful if each iteration was a success
             success = np.all(success)
@@ -361,7 +328,7 @@ class MultiMain(MainRoutine):
                 res.extend(results[p])
 
             # add iteration, success and convergence to results
-            res.append(maxiter + 2 * 3 * maxiter)
+            res.append(iterations)
             res.append(success)
             res.append(converged)
             res.append(self._factors[-1])
@@ -388,10 +355,8 @@ class MultiMain(MainRoutine):
         c = []
         # loop over results
         for param, res in results.items():
-            # is parameter fit parameter
-            if param in self._threshold.keys():
-                # test for convergence
-                c.append(abs(res[-1] - res[-2]) <= self._threshold[param])
+            # test for convergence
+            c.append(abs(res[-1] - res[-2]) <= self._threshold[param])
 
         # return True if all parameters satisfy their convergence criterion
         return np.all(c)
