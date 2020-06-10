@@ -1,11 +1,12 @@
 ## Changelog
 
-### v2.4
-* Re-organized isochrones classes, added MultiIsochrone for external files
-* added different polynomials and sanity check to "isochrone apply"
-* moved executables into their own module and use entry_points instead of scripts in setup.py
-* added new continuum class PeakToPeak (by B. Giesers)
-* fixed FitsSpectrum to allow for setting the primary HDU
+### v2.4 (2020-06-10)
+* Re-organized isochrones classes, added MultiIsochrone for external files.
+* Added different polynomials and sanity check to "isochrone apply".
+* Moved executables into their own module and use entry_points instead of scripts in setup.py.
+* Added new continuum class PeakToPeak (by B. Giesers).
+* Fixed FitsSpectrum to allow for setting the primary HDU.
+* Some smaller changes.
 
 ### v2.3 (2019-11-15)
 * Added iterative fitting in MultiMain (by B. Bischoff).
