@@ -288,7 +288,7 @@ class ParamsFit(MainRoutine):
         # start minimization
         self.log.info('Starting fit...')
         minimizer = lmfit.Minimizer(self._fit_func, params,
-                                    iter_cb=self._callback, max_nfev=self._max_fev, nan_policy='raise',
+                                    iter_cb=self._callback, maxfev=self._max_fev, nan_policy='raise',
                                     xtol=self._xtol, ftol=self._ftol, epsfcn=self._epsfcn, factor=self._factor)
         result = minimizer.leastsq()
         self.log.info('Finished fit.')
