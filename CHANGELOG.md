@@ -1,5 +1,8 @@
 ## Changelog
 
+### v2.4.1 (2020-06-19)
+* Minor fix for lmfit call
+
 ### v2.4 (2020-06-10)
 * Re-organized isochrones classes, added MultiIsochrone for external files.
 * Added different polynomials and sanity check to "isochrone apply".
