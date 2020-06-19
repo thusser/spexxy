@@ -4,12 +4,13 @@ import multiprocessing
 import os
 import pandas as pd
 
+from .main import MainRoutine, FilesRoutine
 from .object import spexxyObject
 from .utils.log import setup_log, shutdown_log
 
 
 class Application(object):
-    def __init__(self, config, filenames, ncpus=None, output=None, resume=False):
+    def __init__(self, config, filenames=None, ncpus=None, output=None, resume=False):
         # store it
         self._config = config
         self._filenames = filenames
@@ -17,13 +18,8 @@ class Application(object):
         self._output = output
         self._resume = resume
 
-        # expand list of spectra
-        self._filenames = []
-        for f in filenames:
-            if '*' in f or '?' in f:
-                self._filenames.extend(glob.glob(f))
-            else:
-                self._filenames.append(f)
+    def run(self):
+        """Run application."""
 
         # init objects
         log = logging.getLogger('spexxy.main')
@@ -35,15 +31,43 @@ class Application(object):
         log.info('Initializing main routine...')
         main = spexxyObject.create_object(self._config['main'], objects=objects, log=log)
 
+        # what type is main?
+        if isinstance(main, FilesRoutine):
+            # run on files
+            self._run_on_files(log, main)
+        elif isinstance(main, MainRoutine):
+            # just run it
+            main()
+
+    def _run_on_files(self, log: logging.Logger, main: FilesRoutine):
+        """Run the given FilesRoutine
+
+        Args:
+            log: Logger to use
+            main: Routine to run
+        """
+
+        # filenames?
+        if self._filenames is None:
+            log.info('Nothing to do, going to bed...')
+
+        # expand list of spectra
+        filenames = []
+        for f in self._filenames:
+            if '*' in f or '?' in f:
+                filenames.extend(glob.glob(f))
+            else:
+                filenames.append(f)
+
         # get columns
         columns = main.columns()
 
         # output csv?
-        if output is not None:
-            if resume and os.path.exists(output):
+        if self._output is not None:
+            if self._resume and os.path.exists(self._output):
                 # loading pre-existing data
                 log.info('Loading results from existing output file...')
-                data = pd.read_csv(output, index_col=False)
+                data = pd.read_csv(self._output, index_col=False)
 
                 # do columns match?
                 if columns != list(data.columns.values)[1:]:
@@ -52,24 +76,20 @@ class Application(object):
 
                 # filter files
                 log.info('Filtering finished files...')
-                self._filenames = list(filter(lambda filename: filename not in data['Filename'].values,
-                                              self._filenames))
+                filenames = list(filter(lambda filename: filename not in data['Filename'].values, filenames))
 
             else:
                 # write new header
                 log.info('Writing new output file...')
-                with open(output, 'w') as f:
+                with open(self._output, 'w') as f:
                     f.write('Filename,' + ','.join(columns) + '\n')
 
         # sort and count files
-        self._filenames = sorted(self._filenames)
+        self._filenames = sorted(filenames)
         self._total = len(self._filenames)
         log.info('Found a total of %d files to process.', len(self._filenames))
 
-    def run(self):
-        # get logger
-        log = logging.getLogger('spexxy.main')
-
+        # anything to do?
         if self._total == 0:
             log.info('Nothing to do, going to bed...')
             return
@@ -129,7 +149,7 @@ class Application(object):
 
         # initialize main routine
         log.info('Initializing main routine...')
-        main = spexxyObject.create_object(self._config['main'], objects=objects, log=log)
+        main: FilesRoutine = spexxyObject.create_object(self._config['main'], objects=objects, log=log)
 
         # init components
         log.info('Setting initial values...')
