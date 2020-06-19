@@ -23,6 +23,7 @@ class SynspecGrid(Grid):
             iat: bla
             el_sol: bla
         """
+        Grid.__init__(self, axes=None, *args, **kwargs)
 
         # store
         self._synspec = synspec
@@ -35,6 +36,10 @@ class SynspecGrid(Grid):
         # load grids
         self._models: Grid = self.get_objects(models, Grid, 'grids', self.log, single=True)
         self._vturbs: Grid = self.get_objects(vturbs, Grid, 'grids', self.log, single=True)
+
+        # init grid
+        self._axes = self._models.axes()
+
 
     def all(self) -> List[Tuple]:
         """Return all possible parameter combinations.
@@ -53,7 +58,7 @@ class SynspecGrid(Grid):
         Returns:
             Whether or not the given parameter set exists in the grid.
         """
-        return tuple(params) in self._models
+        return tuple(params[:-1]) in self._models
 
     def filename(self, params: Tuple) -> str:
         """Returns filename for given parameter set.
@@ -75,18 +80,13 @@ class SynspecGrid(Grid):
         Returns:
             Grid value at given position.
         """
+        print(params)
 
-        # get filename
-        tmp = self._data.loc[tuple(params)]
-        if isinstance(tmp, pd.core.frame.DataFrame):
-            if len(tmp) > 0:
-                self.log.warning('More than one matching spectrum found, taking first.')
-            filename = tmp.iloc[0].Filename
-        else:
-            filename = tmp.Filename
-
-        # return Spectrum
-        return Spectrum.load(os.path.join(self._root, filename))
+        # find element in models grid
+        model_params = self._models.nearest(params[:-1])
+        model = self._models.filename(model_params)
+        print(model_params, model)
 
 
-__all__ = ['FilesGrid']
+
+__all__ = ['SynspecGrid']
