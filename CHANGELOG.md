@@ -1,5 +1,8 @@
 ## Changelog
 
+### v2.5
+* Split MainRoutine into MainRoutine and FilesRoutine, allowing for routines that don't run on files.
+
 ### v2.4.1 (2020-06-19)
 * Minor fix for lmfit call
 
