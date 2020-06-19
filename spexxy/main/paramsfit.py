@@ -13,7 +13,7 @@ from spexxy.component import Component
 from spexxy.mask import Mask
 from spexxy.weight import Weight
 from spexxy.data import SpectrumFitsHDU
-from .main import MainRoutine
+from .base import FilesRoutine
 from spexxy.tools.plot import plot_spectrum
 
 
@@ -97,7 +97,7 @@ class Legendre:
         return self.values
 
 
-class ParamsFit(MainRoutine):
+class ParamsFit(FilesRoutine):
     """ParamsFit is a fitting routine for spexxy that uses a Levenberg-Marquardt optimization to fit a set of
     model spectra (components) to a given spectrum.
     """

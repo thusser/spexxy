@@ -2,10 +2,10 @@ import numpy as np
 from typing import List, Dict
 
 from spexxy.component import Component, TelluricsComponent
-from .main import MainRoutine
+from .base import FilesRoutine
 
 
-class MultiMain(MainRoutine):
+class MultiMain(FilesRoutine):
     """MultiRun iterates over a given set of main routines and runs them sequentially."""
 
     def __init__(self, routines: List = None, iterations: int = None, max_iterations: int = 8,

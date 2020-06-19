@@ -10,6 +10,14 @@ class MainRoutine(spexxyObject):
         """Initialize a new MainRoutine object"""
         spexxyObject.__init__(self, *args, **kwargs)
 
+
+class FilesRoutine(MainRoutine):
+    """FilesRoutine is the base class for all routines fitting files."""
+
+    def __init__(self, *args, **kwargs):
+        """Initialize a new MainRoutine object"""
+        MainRoutine.__init__(self, *args, **kwargs)
+
     def parameters(self) -> List[str]:
         """Get list of parameters fitted by this routine.
 
@@ -45,4 +53,4 @@ class MainRoutine(spexxyObject):
         raise NotImplementedError
 
 
-__all__ = ['MainRoutine']
+__all__ = ['MainRoutine', 'FilesRoutine']
