@@ -125,7 +125,7 @@ class ParamsFit(FilesRoutine):
             min_valid_pixels: Fraction of minimum number of required pixels to continue with fit.
             plot_iterations: Plot all iterations into a PDF file.
         """
-        MainRoutine.__init__(self, *args, **kwargs)
+        FilesRoutine.__init__(self, *args, **kwargs)
 
         # remember variables
         self._max_fev = maxfev
@@ -219,7 +219,7 @@ class ParamsFit(FilesRoutine):
         """
 
         # call base and add columns Success
-        return MainRoutine.columns(self) + ['Success', 'RedChi2']
+        return FilesRoutine.columns(self) + ['Success', 'RedChi2']
 
     @property
     def components(self) -> List[Component]:

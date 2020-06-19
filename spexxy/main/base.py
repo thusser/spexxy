@@ -10,6 +10,10 @@ class MainRoutine(spexxyObject):
         """Initialize a new MainRoutine object"""
         spexxyObject.__init__(self, *args, **kwargs)
 
+    def __call__(self):
+        """Start the routine."""
+        raise NotImplementedError
+
 
 class FilesRoutine(MainRoutine):
     """FilesRoutine is the base class for all routines fitting files."""
