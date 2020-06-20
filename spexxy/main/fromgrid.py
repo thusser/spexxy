@@ -1,4 +1,4 @@
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 from .base import MainRoutine
 from ..data import SpectrumFits, Spectrum
 from ..grid import Grid
@@ -7,12 +7,12 @@ from ..grid import Grid
 class FromGrid(MainRoutine):
     """Grid is a main routine for fetching a spectrum from a grid."""
 
-    def __init__(self, grid: Grid, params: List[Tuple], prefix: str = 'spectrum_', *args, **kwargs):
+    def __init__(self, grid: Grid, params: Dict[str, Tuple], prefix: str = 'spectrum_', *args, **kwargs):
         """Initialize a new ParamsFit object
 
         Args:
             grid: Grid to extract from.
-            param: List of parameter tuples with spectra to extract.
+            param: Dict with filename->parameters pairs with spectra to extract.
             prefix: Prefix for spectra to write.
         """
         MainRoutine.__init__(self, *args, **kwargs)
@@ -27,13 +27,12 @@ class FromGrid(MainRoutine):
         grid = self.get_objects(self._grid, Grid, 'grids', self.log, single=True)
 
         # loop params
-        for i, params in enumerate(self._params, 1):
+        for i, (filename, params) in enumerate(self._params.items(), 1):
             # get spectrum
             self.log.info('Fetching spectrum at %s...', params)
             spec: Spectrum = grid(tuple(params))
 
             # get filename
-            filename = '%s%04d.fits' % (self._prefix, i)
             self.log.info('Saving as %s...', filename)
 
             # write it
