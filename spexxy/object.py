@@ -24,64 +24,6 @@ class spexxyObject(object):
         """
         return self._log if self._log is not None else logging.getLogger()
 
-    @staticmethod
-    def get_class_from_string(class_name: str) -> object:
-        """Take a class name as a string and return the actual class
-
-        Args:
-            class_name: Name of class.
-
-        Returns:
-            Actual class.
-        """
-
-        # split parts of class name, i.e. modules and class
-        parts = class_name.split('.')
-
-        # join module name
-        module_name = ".".join(parts[:-1])
-
-        # import module
-        cls = __import__(module_name)
-
-        # fetch class and return it
-        for comp in parts[1:]:
-            cls = getattr(cls, comp)
-        return cls
-
-    @staticmethod
-    def create_object(config: dict, log: logging.Logger = None, *args, **kwargs) -> object:
-        """Create a new object from a dict.
-
-        Args:
-            config: Dictionary with a "class" element to create object from.
-            log: Logger to use for new object.
-
-        Returns:
-            New object created from config.
-
-        Raises:
-            ValueError: Cannot copy config dictionary or no class name given.
-        """
-
-        # copy config
-        try:
-            cfg = dict(config)
-        except ValueError:
-            log.error('Cannot copy dict: %s', config)
-            raise
-
-        # get class name
-        class_name = cfg.pop('class', None)
-        if class_name is None:
-            raise ValueError('No class name given.')
-
-        # create class
-        cls = spexxyObject.get_class_from_string(class_name)
-
-        # create object
-        return cls(*args, **kwargs, **cfg, log=log)
-
     def _get_object_from_group(self, name: str, klass, group: str) -> 'spexxyObject':
         """Returns an object from a group.
 
@@ -150,7 +92,7 @@ class spexxyObject(object):
         """
 
         # create object
-        obj = spexxyObject.create_object(definition, log=log, objects=self.objects)
+        obj = create_object(definition, log=log, objects=self.objects)
 
         # check type
         if not isinstance(obj, klass):
@@ -242,4 +184,62 @@ class spexxyObject(object):
         return (None if len(objs) == 0 else objs[0]) if single else objs
 
 
-__all__ = ['spexxyObject']
+def get_class_from_string(class_name: str) -> typing.Type:
+    """Take a class name as a string and return the actual class
+
+    Args:
+        class_name: Name of class.
+
+    Returns:
+        Actual class.
+    """
+
+    # split parts of class name, i.e. modules and class
+    parts = class_name.split('.')
+
+    # join module name
+    module_name = ".".join(parts[:-1])
+
+    # import module
+    cls = __import__(module_name)
+
+    # fetch class and return it
+    for comp in parts[1:]:
+        cls = getattr(cls, comp)
+    return cls
+
+
+def create_object(config: dict, log: logging.Logger = None, *args, **kwargs) -> spexxyObject:
+    """Create a new object from a dict.
+
+    Args:
+        config: Dictionary with a "class" element to create object from.
+        log: Logger to use for new object.
+
+    Returns:
+        New object created from config.
+
+    Raises:
+        ValueError: Cannot copy config dictionary or no class name given.
+    """
+
+    # copy config
+    try:
+        cfg = dict(config)
+    except ValueError:
+        log.error('Cannot copy dict: %s', config)
+        raise
+
+    # get class name
+    class_name = cfg.pop('class', None)
+    if class_name is None:
+        raise ValueError('No class name given.')
+
+    # create class
+    cls = get_class_from_string(class_name)
+
+    # create object
+    return cls(*args, **kwargs, **cfg, log=log)
+
+
+__all__ = ['spexxyObject', 'create_object']

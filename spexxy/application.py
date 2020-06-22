@@ -5,7 +5,7 @@ import os
 import pandas as pd
 
 from .main import MainRoutine, FilesRoutine
-from .object import spexxyObject
+from .object import spexxyObject, create_object
 from .utils.log import setup_log, shutdown_log
 
 
@@ -29,7 +29,7 @@ class Application(object):
 
         # initialize main routine
         log.info('Initializing main routine...')
-        main = spexxyObject.create_object(self._config['main'], objects=objects, log=log)
+        main = create_object(self._config['main'], objects=objects, log=log)
 
         # what type is main?
         if isinstance(main, FilesRoutine):
@@ -149,7 +149,7 @@ class Application(object):
 
         # initialize main routine
         log.info('Initializing main routine...')
-        main: FilesRoutine = spexxyObject.create_object(self._config['main'], objects=objects, log=log)
+        main: FilesRoutine = create_object(self._config['main'], objects=objects, log=log)
 
         # init components
         log.info('Setting initial values...')
@@ -192,7 +192,7 @@ class Application(object):
                 # all other groups are nested
                 objects[group] = {}
                 for name, config in value.items():
-                    objects[group][name] = spexxyObject.create_object(config, objects=objects, name=name, log=log)
+                    objects[group][name] = create_object(config, objects=objects, name=name, log=log)
 
         # finished
         return objects
