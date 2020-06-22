@@ -249,6 +249,7 @@ class SynspecGrid(Grid):
         Returns:
             Grid value at given position.
         """
+
         # get params
         teff, logg, feh, alpha, el = params
 
@@ -290,7 +291,7 @@ class SynspecGrid(Grid):
         shutil.rmtree(tmp)
 
         # return spec
-        spec = Spectrum(wave=d['wave'], flux=d['flux'])
+        spec = Spectrum(wave=d['wave'], flux=d['flux']).resample_const(step=0.02)
         return spec
 
     def _write_fort5(self, teff, logg, feh):
