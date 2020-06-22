@@ -8,6 +8,8 @@ import pandas as pd
 import scipy
 import scipy.optimize
 import scipy.stats
+from astropy.convolution import convolve
+
 from spexxy.data.losvd import LOSVD
 from spexxy.data.spectrum import Spectrum
 
@@ -354,6 +356,34 @@ class EmpiricalLSF(LSF):
         p = np.argmin(abs(points - wave))
         return self.data[p, :]
 
+    def extract_at_wave(self, wave: float) -> 'EmpiricalLSF':
+        """Extract LSF at given wavelength
+
+        Args:
+            wave: Wavelength to extract at.
+
+        Returns:
+            New LSF
+        """
+
+        # create new lsf
+        lsf = EmpiricalLSF()
+
+        # copy values
+        lsf.crval1 = self.crval1
+        lsf.cdelt1 = self.cdelt1
+        lsf.ctype1 = self.ctype1
+
+        # ignore 2nd dimension
+        lsf.crval2 = 0
+        lsf.cdelt2 = 1
+        lsf.ctype2 = Spectrum.Mode.LAMBDA
+
+        # extract data and set it
+        data = self.get_lsf_closest_to_wave(wave)
+        lsf.data = data.reshape((1, len(data)))
+        return lsf
+
     def wave_mode(self, mode: Spectrum.Mode):
         """Change the wavelength mode of the LSF (LAMBDA or LOGLAMBDA)
 
@@ -418,9 +448,13 @@ class EmpiricalLSF(LSF):
         wave_lsf = np.arange(-spec.wave_step * npix, spec.wave_step * npix + spec.wave_step * 0.5, spec.wave_step)
 
         # blow up data to full spectrum's range and sampling
-        w = self.wavelength_points(log=(spec.wave_mode == Spectrum.Mode.LOGLAMBDA))
-        ip = scipy.interpolate.interp2d(self.wave_lsf(), w, self.data)
-        self.data = ip(wave_lsf, w)
+        if self.crval2 > 0:
+            w = self.wavelength_points(log=(spec.wave_mode == Spectrum.Mode.LOGLAMBDA))
+            ip = scipy.interpolate.interp2d(self.wave_lsf(), w, self.data)
+            self.data = ip(wave_lsf, w)
+        else:
+            ip = scipy.interpolate.interp1d(self.wave_lsf(), self.data[0, :], fill_value='extrapolate')
+            self.data = ip(wave_lsf).reshape(1, len(wave_lsf))
 
         # set wave parameters
         self.crval1 = wave_lsf[0]
@@ -447,16 +481,21 @@ class EmpiricalLSF(LSF):
         # get half size of LSF
         npix = int(self.data.shape[1] / 2.)
 
-        # array for new flux
-        new_flux = np.empty((len(spec.wave)))
+        # LSF at multiple wavelengths?
+        if self.crval1 > 0:
+            # array for new flux
+            new_flux = np.empty((len(spec.wave)))
 
-        # calculate new flux
-        for w in range(npix+1, len(new_flux)-npix):
-            # find best lsf point
-            lsf_idx = np.argmin(np.abs(spec.wave[w] - wave_spec))
             # calculate new flux
-            new_flux[w] = np.sum(spec.flux[w-npix:w+npix+1] * self.data[lsf_idx, :]) # * spec.wave_step
-            new_flux[w] /= np.sum(self.data[lsf_idx, :])
+            for w in range(npix+1, len(new_flux)-npix):
+                # find best lsf point
+                lsf_idx = np.argmin(np.abs(spec.wave[w] - wave_spec))
+                # calculate new flux
+                new_flux[w] = np.sum(spec.flux[w-npix:w+npix+1] * self.data[lsf_idx, :]) # * spec.wave_step
+                new_flux[w] /= np.sum(self.data[lsf_idx, :])
+        else:
+            # just convolve
+            new_flux = convolve(spec.flux, self.data[0, :], boundary='extend')
 
         # create new spec
         return spec.__class__(flux=new_flux[npix + 1:-npix], wave_start=spec.wave_start + (npix + 1) * spec.wave_step,
