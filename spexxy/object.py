@@ -95,9 +95,9 @@ class spexxyObject(object):
         obj = create_object(definition, log=log, objects=self.objects)
 
         # check type
-        if not isinstance(obj, klass):
-            raise ValueError('Newly created object "%s" is of type "%s", should be "%s".',
-                             name, obj.__class__.__name__, klass.__name__)
+        if not self._is_of_classes(obj, klass):
+            raise ValueError('Newly created object "%s" is of type "%s", should be one of %s.' %
+                             (name, obj.__class__.__name__, [k.__name__ for k in klass]))
 
         # add to objects dict
         if group not in self.objects:
@@ -106,6 +106,30 @@ class spexxyObject(object):
 
         # return it
         return obj
+
+    def _is_of_classes(self, obj: object, klass: typing.Union[typing.Type, typing.List[typing.Type]]):
+        """Checks, whether
+
+        Args:
+            obj: Object to check
+            klass: Single type or list of types
+
+        Returns:
+
+        """
+
+        # make it a list
+        if not isinstance(klass, list):
+            klass = [klass]
+
+        # loop all
+        for k in klass:
+            if isinstance(obj, k):
+                # found it
+                return True
+        else:
+            # nothing found
+            return False
 
     def get_objects(self, definition: typing.Union[object, str, list, dict], klass, group: str,
                     log: logging.Logger = None, single: bool = False) -> typing.Union[list, 'spexxyObject', None]:
@@ -137,7 +161,7 @@ class spexxyObject(object):
             # just nothing
             pass
 
-        elif isinstance(definition, klass):
+        elif self._is_of_classes(definition, klass):
             # got the correct type from the beginning!
             objs = [definition]
 
