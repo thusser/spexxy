@@ -6,7 +6,7 @@ import os
 
 from .grid import Grid, GridAxis
 from ..data import Spectrum
-
+from ..interpolator import Interpolator
 
 ABUND_AGSS = [
     (1, 'H', 12., 2),
@@ -205,7 +205,7 @@ class SynspecGrid(Grid):
         self._range = range
 
         # load grids
-        self._models: Grid = self.get_objects(models, Grid, 'grids', self.log, single=True)
+        self._models: Grid = self.get_objects(models, [Grid, Interpolator], 'grids', self.log, single=True)
 
         # init grid
         self._axes = self._models.axes()
@@ -253,8 +253,7 @@ class SynspecGrid(Grid):
         teff, logg, feh, alpha, el = params
 
         # find element in models grid
-        model_params = self._models.nearest(params[:-1])
-        mod = self._models.filename(model_params)
+        mod = self._models.filename(params[:-1])
 
         # temp directory
         tmp = os.path.abspath(mkdtemp(dir='tmp'))
