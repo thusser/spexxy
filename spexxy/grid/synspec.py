@@ -1,6 +1,6 @@
 import shutil
 from tempfile import mkdtemp
-from typing import List, Any, Tuple
+from typing import List, Any, Tuple, Dict
 import pandas as pd
 import os
 
@@ -8,48 +8,205 @@ from .grid import Grid, GridAxis
 from ..data import Spectrum
 
 
+ABUND_AGSS = [
+    (1, 'H', 12., 2),
+    (2, 'He', 10.93, 2),
+    (3, 'Li', 3.26, 1),
+    (4, 'Be', 1.38, 1),
+    (5, 'B', 2.79, 1),
+    (6, 'C', 8.43, 2),
+    (7, 'N', 7.83, 2),
+    (8, 'O', 8.69, 2),
+    (9, 'F', 4.56, 1),
+    (10, 'Ne', 7.93, 2),
+    (11, 'Na', 6.24, 1),
+    (12, 'Mg', 7.60, 2),
+    (13, 'Al', 6.45, 2),
+    (14, 'Si', 7.51, 2),
+    (15, 'P', 5.41, 1),
+    (16, 'S', 7.12, 2),
+    (17, 'Cl', 5.50, 1),
+    (18, 'Ar', 6.40, 1),
+    (19, 'K', 5.08, 1),
+    (20, 'Ca', 6.34, 1),
+    (21, 'Sc', 3.15, 1),
+    (22, 'Ti', 4.95, 1),
+    (23, 'V', 3.93, 1),
+    (24, 'Cr', 5.64, 1),
+    (25, 'Mn', 5.43, 1),
+    (26, 'Fe', 7.50, 2),
+    (27, 'Co', 4.99, 1),
+    (28, 'Ni', 6.22, 1),
+    (29, 'Cu', 4.19, 1),
+    (30, 'Zn', 4.56, 1),
+    (31, 'Ga', 3.04, 1),
+    (32, 'Ge', 3.65, 1),
+    (33, 'As', 2.30, 1),
+    (34, 'Se', 3.34, 1),
+    (35, 'Br', 2.54, 1),
+    (36, 'Kr', 3.25, 1),
+    (37, 'Rb', 2.36, 1),
+    (38, 'Sr', 2.87, 1),
+    (39, 'Y', 2.21, 1),
+    (40, 'Zr', 2.58, 1),
+    (41, 'Nb', 1.46, 1),
+    (42, 'Mo', 1.88, 1),
+    (43, 'Tc', 0, 0),
+    (44, 'Ru', 1.75, 1),
+    (45, 'Rh', 1.06, 1),
+    (46, 'Pd', 1.65, 1),
+    (47, 'Ag', 1.20, 1),
+    (48, 'Cd', 1.71, 1),
+    (49, 'In', 0.76, 1),
+    (50, 'Sn', 2.04, 1),
+    (51, 'Sb', 1.01, 1),
+    (52, 'Te', 2.18, 1),
+    (53, 'I', 1.55, 1),
+    (54, 'Xe', 2.24, 1),
+    (55, 'Cs', 1.08, 1),
+    (56, 'Ba', 2.18, 1),
+    (57, 'La', 1.10, 1),
+    (58, 'Ce', 1.58, 1),
+    (59, 'Pr', 0.72, 1),
+    (60, 'Nd', 1.42, 1),
+    (61, 'Pm', 0, 0),
+    (62, 'Sm', 0.96, 1),
+    (63, 'Eu', 0.52, 1),
+    (64, 'Gd', 1.07, 1),
+    (65, 'Tb', 0.30, 1),
+    (66, 'Dy', 1.10, 1),
+    (67, 'Ho', 0.48, 1),
+    (68, 'Er', 0.92, 1),
+    (69, 'Tm', 0.10, 1),
+    (70, 'Yb', 0.92, 1),
+    (71, 'Lu', 0.10, 1),
+    (72, 'Hf', 0.85, 1),
+    (73, 'Ta', -0.12, 1),
+    (74, 'W',  0.65, 1),
+    (75, 'Re', 0.26, 1),
+    (76, 'Os', 1.40, 1),
+    (77, 'Ir', 1.38, 1),
+    (78, 'Pt', 1.62, 1),
+    (79, 'Au', 0.80, 1),
+    (80, 'Hg', 1.17, 1),
+    (81, 'Tl', 0.77, 1),
+    (82, 'Pb', 2.04, 1),
+    (83, 'Bi', 0.65, 1),
+    (84, 'Po', 0, 0),
+    (85, 'At', 0, 0),
+    (86, 'Rn', 0, 0),
+    (87, 'Fr', 0, 0),
+    (88, 'Ra', 0, 0),
+    (89, 'Ca', 0, 0),
+    (90, 'Th', 0.06, 1),
+    (91, 'Pa', 0, 0),
+    (92, 'U', -0.54, 1)
+]
+
+
+FORT5_HEADER = """
+%f %f
+ T  F              ! LTE,  LTGRAY
+ 'nstf'            ! name of file containing non-standard flags
+*
+* frequencies
+*
+ 2000
+*
+* data for atoms   
+*
+ 92                 ! NATOMS
+* mode abn modpf
+"""
+
+
+FORT5_FOOTER = """
+*
+* data for ions
+*
+*iat   iz   nlevs  ilast ilvlin  nonstd typion  filei
+*
+   1   -1     1      0      0      0    ' H- ' 'data/hmin.dat'
+   1    0     9      0      0      0    ' H 1' 'data/h1.dat'
+   1    1     1      1      0      0    ' H 2' ' '
+   2    0    24      0      0      0    'He 1' 'data/he1.dat'
+   2    1     1      1      0      0    'He 2' ' '
+   6    0    40      0      0      0    ' C 1' 'data/c1.dat'
+   6    1    22      0      0      0    ' C 2' 'data/c2.dat'
+   6    2     1      1      0      0    ' C 3' ' '
+   7    0    34      0      0      0    ' N 1' 'data/n1.dat'
+   7    1    42      0      0      0    ' N 2' 'data/n2_32+10lev.dat'
+   7    2     1      1      0      0    ' N 3' ' '
+   8    0    33      0      0      0    ' O 1' 'data/o1_23+10lev.dat'
+   8    1    48      0      0      0    ' O 2' 'data/o2_36+12lev.dat'
+   8    2     1      1      0      0    ' O 3' ' '
+  10    0    35      0      0      0    'Ne 1' 'data/ne1_23+12lev.dat'
+  10    1    32      0      0      0    'Ne 2' 'data/ne2_23+9lev.dat'
+  10    2     1      1      0      0    'Ne 3' ' '
+  12    0    41      0      0      0    'Mg 1' 'data/mg1.t'
+  12    1    25      0      0      0    'Mg 2' 'data/mg2.dat'
+  12    2     1      1      0      0    'Mg 3' ' '
+  13    0    10      0      0      0    'Al 1' 'data/al1.t'
+  13    1    29      0      0      0    'Al 2' 'data/al2_20+9lev.dat'
+  13    2     1      1      0      0    'Al 3' ' '
+  14    0    45      0      0      0    'Si 1' 'data/si1.t'
+  14    1    40      0      0      0    'Si 2' 'data/si2_36+4lev.dat'
+  14    2     1      1      0      0    'Si 3' ' '
+  16    0    41      0      0      0    ' S 1' 'data/s1.t'
+  16    1    33      0      0      0    ' S 2' 'data/s2_23+10lev.dat'
+  16    2     1      1      0      0    ' S 3' ' '
+  26    0    30      0      0      0    'Fe 1' 'data/fe1.dat'
+  26    1    36      0      0     -1    'Fe 2' 'data/fe2va.dat'
+   0    0                                      'data/gf2601.gam'
+                                               'data/gf2601.lin'
+                                               'data/fe2p_14+11lev.rap'
+  26    2    50      0      0     -1    'Fe 3' 'data/fe3va.dat'
+   0    0                                      'data/gf2602.gam'
+                                               'data/gf2602.lin'
+                                               'data/fe3p_22+7lev.rap'
+  26    3     1      1      0      0    'Fe 4' ' '
+   0    0     0     -1      0      0    '    ' ' '
+*
+"""
+
+
+FORT55 = """
+10   52   0        ! imode idstd iprin
+0    0   0   1     ! inmod intrpl ichang ichemc
+0    0   0   0   0 ! iophli nunalp nunbet nungam nunbal
+1    0   0   0   0 ! ifreq inlte icontl inlist ifhe2
+1    0   0         ! ihydpr ihe1pr ihe2pr
+%4d  %4d 40  0  1.e-5 0.03 ! alam0 alast cutof0 cutofs relop space
+1  26              ! nmlist, (iunitm(i),i=1,nmlist) for molecular linelists
+"""
+
+
 class SynspecGrid(Grid):
     """Synthesizes a new spectrum with Synspec at given grid positions."""
 
-    def __init__(self, models: Grid, vturbs: Grid, synspec: str, inpmol: str, linelist: str, mollist: str, iat: float,
-                 el_sol: float, datadir: str, gfmol: str, nstmol: str, inputfiles: str, *args, **kwargs):
+    def __init__(self, synspec: str, models: Grid, linelist: str, mollist: str, datadir: str, *args, **kwargs):
         """Constructs a new Grid.
 
         Args:
-            models: Grid with model atmospheres
-            vturbs: Grid with micro turbulences
             synspec: Full path to synspec exectuble
-            inpmol: Standard input for synspec
+            models: Grid with model atmospheres
             linelist: File with line list
             mollist: File with molecular list
-            iat: bla
-            el_sol: bla
             datadir: Name of data directory
-            gfmol: bla
-            nstmol: bla
-            inputfiles: bla
         """
         Grid.__init__(self, axes=None, *args, **kwargs)
 
         # store
         self._synspec = synspec
-        self._inpmol = inpmol
         self._linelist = linelist
         self._mollist = mollist
-        self._iat = iat
-        self._el_sol = el_sol
         self._datadir = datadir
-        self._gfmol = gfmol
-        self._nstmol = nstmol
-        self._inputfiles = inputfiles
 
         # load grids
         self._models: Grid = self.get_objects(models, Grid, 'grids', self.log, single=True)
-        self._vturbs: Grid = self.get_objects(vturbs, Grid, 'grids', self.log, single=True)
 
         # init grid
         self._axes = self._models.axes()
-
 
     def all(self) -> List[Tuple]:
         """Return all possible parameter combinations.
@@ -90,93 +247,105 @@ class SynspecGrid(Grid):
         Returns:
             Grid value at given position.
         """
-        print(params)
         # get params
         teff, logg, feh, alpha, el = params
 
         # find element in models grid
         model_params = self._models.nearest(params[:-1])
         mod = self._models.filename(model_params)
-        print(model_params, mod)
 
         # temp directory
         tmp = os.path.abspath(mkdtemp(dir='tmp'))
 
-        # init
-        subgrid = 'Z-1.0'
-        self._make_inp5(tmp, teff, logg, subgrid)
-        self._make_nst(tmp)
-
-        self._make_inp56(tmp, self._iat, self._el_sol, el)
-        self._copy_inputs(tmp, mod, self._inpmol, self._linelist, self._mollist)
-
-        os.symlink(self._synspec, os.path.join(tmp, 'synspec'))
-
+        # change path
         cwd = os.getcwd()
         os.chdir(tmp)
-        os.system('pwd')
+
+        # write fort.5 and file with non-standard flags
+        self._write_fort5(teff, logg, feh)
+        self._write_nstf()
+
+        # write config
+        self._write_fort55(7830, 7840)
+
+        # write element changes
+        self._write_fort56({'Al': el})
+
+        # create symlinks
+        os.symlink(self._synspec, 'synspec')
+        os.symlink(mod, 'fort.8')
+        os.symlink(self._linelist, 'fort.19')
+        os.symlink(self._mollist, 'fort.26')
+        os.symlink(self._datadir, 'data')
+
+        # run synspec
         os.system('./synspec < fort.5 > fort.6')
+
+        # read output
         d = pd.read_csv('fort.7', delim_whitespace=True, names=['wave', 'flux'])
+
+        # return to old directory and clean up
         os.chdir(cwd)
-
-        spec = Spectrum(wave=d['wave'], flux=d['flux'])
-        print(spec.wave_start, spec.wave_step)
-
         shutil.rmtree(tmp)
+
+        # return spec
+        spec = Spectrum(wave=d['wave'], flux=d['flux'])
         return spec
 
-    def _make_inp5(self, tmp, teff, logg, subgrid):
-        ## read a template for the inp.5 file
-        ## and replace teff and grav by the appropriate values
+    def _write_fort5(self, teff, logg, feh):
+        with open('fort.5', 'w') as f:
+            # write header
+            f.write(FORT5_HEADER % (teff, logg))
 
-        with open(os.path.join(self._inputfiles, 'inp.5' + subgrid.strip('/')), 'r') as f:
-            inp5temp = f.read()
+            # write abundances
+            for no, el, abund, mode in ABUND_AGSS:
+                # calculate abundance
+                if no == 0:
+                    a = 0
+                elif no == 1:
+                    a = 10.**(abund - 12) if mode > 0 else 0.
+                else:
+                    a = 10. ** (abund - 12 + feh) if mode > 0 else 0.
 
-        inp5 = inp5temp.replace('$TEFF', str(teff)).replace('$GRAV', str(logg))
+                # write it
+                f.write('%d %g 0 !%s\n' % (mode, a, el))
 
-        with open(os.path.join(tmp, 'fort.5'), 'w') as f:
-            f.write(inp5)
+            # write footer
+            f.write(FORT5_FOOTER)
 
-    def _make_nst(self, tmp):
-        ## I go open and read the original phoenix spectra, to retrieve information on the turbulent
-        ## velocity of the original model atmosphere, which is contained in the header
-        #pathf = 'lte04800-1.50-1.0.PHOENIX-ACES-AGSS-COND-2011-HiResMuse.fits'
-        #hdu = fits.open(pathf)
-        #vtb_phoenix = hdu[0].header['PHXXI_L']
+    def _write_nstf(self):
+        with open('nstf', 'w') as f:
+            f.write('ND=64,VTB=%f, IFMOL=1' % 2.)
 
-        ## I will update the template nst file and put the right VTB value in there
+    def _write_fort55(self, wstart, wend):
+        with open('fort.55', 'w') as f:
+            f.write(FORT55 % (wstart, wend))
 
-        with open(self._nstmol, 'r') as f:
-            temp = f.read()
+    def _write_fort56(self, abunds: Dict[str, float]):
+        """Write fort.56 file.
 
-        #nstnew = temp.replace('$VTB', str(vtb_phoenix))
-        nstnew = temp.replace('$VTB', str(2))
+        To create the fort.56 that contains the updated abundance (abund_up) for the element wanted
+        All we need is a file with :
+            1
+            iat abund_up
 
-        with open(os.path.join(tmp, 'nstphoenix'), 'w') as f:
-            f.write(nstnew)
+        Args:
+            abunds: Dictionary as el->[X/H] abundance
+        """
 
-    def _make_inp56(self, tmp, iat, ab_sol, abund_up):
-        # To create the fort.56 that contains the updated
-        # abundance (abund_up) for the element wanted
-        # All we need is a file with :
-        # -----
-        # 1
-        # iat abund_up
+        with open('fort.56', 'w') as f:
+            # write number of changes
+            f.write('%d\n' % len(abunds))
 
-        abund_elem = ab_sol * 10 ** abund_up
-
-        with open(os.path.join(tmp, "fort.56"), 'w') as f:
-            f.write('1 \n')
-            f.write('%i  %0.3e \n' % (iat, abund_elem))
-
-    def _copy_inputs(self, tmp, mod, inp55, llist, listmol):
-        shutil.copy(mod, os.path.join(tmp, 'fort.8'))  # model atmosphere into fort.8
-        shutil.copy(inp55, os.path.join(tmp, 'fort.55'))  # the standard input for synspec
-
-        os.symlink(os.path.abspath(llist), os.path.join(tmp, 'fort.19'))
-        os.symlink(os.path.abspath(listmol), os.path.join(tmp, 'fort.26'))
-        os.symlink(self._gfmol, os.path.join(tmp, 'fort.27'))
-        os.symlink(self._datadir, os.path.join(tmp, 'data'))
+            # write changes
+            for user_el, user_abund in abunds.items():
+                # find el in AGSS
+                for no, el, abund, _ in ABUND_AGSS:
+                    if el == user_el:
+                        f.write('%d %0.3g\n' % (no, 10. ** (abund - 12 + user_abund)))
+                        break
+                else:
+                    raise ValueError('Element %s not found.' % user_el)
 
 
 __all__ = ['SynspecGrid']
