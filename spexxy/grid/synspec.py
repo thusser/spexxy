@@ -4,7 +4,7 @@ from typing import List, Any, Tuple, Dict
 import pandas as pd
 import os
 
-from .grid import Grid, GridAxis
+from .grid import Grid
 from ..data import Spectrum
 from ..interpolator import Interpolator
 
@@ -104,8 +104,7 @@ ABUND_AGSS = [
 ]
 
 
-FORT5_HEADER = """
-%f %f
+FORT5_HEADER = """%.2f %.2f
  T  F              ! LTE,  LTGRAY
  'nstf'            ! name of file containing non-standard flags
 *
@@ -120,8 +119,7 @@ FORT5_HEADER = """
 """
 
 
-FORT5_FOOTER = """
-*
+FORT5_FOOTER = """*
 * data for ions
 *
 *iat   iz   nlevs  ilast ilvlin  nonstd typion  filei
@@ -170,8 +168,7 @@ FORT5_FOOTER = """
 """
 
 
-FORT55 = """
-10   52   0        ! imode idstd iprin
+FORT55 = """10   52   0        ! imode idstd iprin
 0    0   0   1     ! inmod intrpl ichang ichemc
 0    0   0   0   0 ! iophli nunalp nunbet nungam nunbal
 1    0   0   0   0 ! ifreq inlte icontl inlist ifhe2
@@ -310,14 +307,14 @@ class SynspecGrid(Grid):
                     a = 10. ** (abund - 12 + feh) if mode > 0 else 0.
 
                 # write it
-                f.write('%d %g 0 !%s\n' % (mode, a, el))
+                f.write('%d %.3g 0 !%s\n' % (mode, a, el))
 
             # write footer
             f.write(FORT5_FOOTER)
 
     def _write_nstf(self):
         with open('nstf', 'w') as f:
-            f.write('ND=64,VTB=%f, IFMOL=1' % 2.)
+            f.write('ND=64,VTB=%.2f, IFMOL=1' % 1.78)
 
     def _write_fort55(self, wstart, wend):
         with open('fort.55', 'w') as f:
@@ -344,7 +341,7 @@ class SynspecGrid(Grid):
                 # find el in AGSS
                 for no, el, abund, _ in ABUND_AGSS:
                     if el == user_el:
-                        f.write('%d %0.3g\n' % (no, 10. ** (abund - 12 + user_abund)))
+                        f.write('%d %.3g\n' % (no, 10. ** (abund - 12 + user_abund)))
                         break
                 else:
                     raise ValueError('Element %s not found.' % user_el)
