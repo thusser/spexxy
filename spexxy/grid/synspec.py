@@ -184,7 +184,8 @@ FORT55 = """
 class SynspecGrid(Grid):
     """Synthesizes a new spectrum with Synspec at given grid positions."""
 
-    def __init__(self, synspec: str, models: Grid, linelist: str, mollist: str, datadir: str, *args, **kwargs):
+    def __init__(self, synspec: str, models: Grid, linelist: str, mollist: str, datadir: str,
+                 range: Tuple[float, float], *args, **kwargs):
         """Constructs a new Grid.
 
         Args:
@@ -201,6 +202,7 @@ class SynspecGrid(Grid):
         self._linelist = linelist
         self._mollist = mollist
         self._datadir = datadir
+        self._range = range
 
         # load grids
         self._models: Grid = self.get_objects(models, Grid, 'grids', self.log, single=True)
@@ -266,7 +268,7 @@ class SynspecGrid(Grid):
         self._write_nstf()
 
         # write config
-        self._write_fort55(7830, 7840)
+        self._write_fort55(*self._range)
 
         # write element changes
         self._write_fort56({'Al': el})
