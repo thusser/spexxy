@@ -265,36 +265,39 @@ class SynspecGrid(Grid):
         cwd = os.getcwd()
         os.chdir(tmp)
 
-        # write fort.5 and file with non-standard flags
-        self._write_fort5(teff, logg, feh, alpha)
-        self._write_nstf(teff, logg, feh, alpha)
+        # make sure to delete temp directory in the end
+        try:
+            # write fort.5 and file with non-standard flags
+            self._write_fort5(teff, logg, feh, alpha)
+            self._write_nstf(teff, logg, feh, alpha)
 
-        # write config
-        self._write_fort55(*self._range)
+            # write config
+            self._write_fort55(*self._range)
 
-        # write element changes
-        self._write_fort56({'Al': el})
+            # write element changes
+            self._write_fort56({'Al': el})
 
-        # create symlinks
-        os.symlink(self._synspec, 'synspec')
-        os.symlink(mod, 'fort.8')
-        os.symlink(self._linelist, 'fort.19')
-        os.symlink(self._mollist, 'fort.26')
-        os.symlink(self._datadir, 'data')
+            # create symlinks
+            os.symlink(self._synspec, 'synspec')
+            os.symlink(mod, 'fort.8')
+            os.symlink(self._linelist, 'fort.19')
+            os.symlink(self._mollist, 'fort.26')
+            os.symlink(self._datadir, 'data')
 
-        # run synspec
-        os.system('./synspec < fort.5 > fort.6')
+            # run synspec
+            os.system('./synspec < fort.5 > fort.6')
 
-        # read output
-        d = pd.read_csv('fort.7', delim_whitespace=True, names=['wave', 'flux'])
+            # read output
+            d = pd.read_csv('fort.7', delim_whitespace=True, names=['wave', 'flux'])
 
-        # return to old directory and clean up
-        os.chdir(cwd)
-        shutil.rmtree(tmp)
+            # return spec
+            spec = Spectrum(wave=d['wave'], flux=d['flux']).resample_const(step=0.02)
+            return spec
 
-        # return spec
-        spec = Spectrum(wave=d['wave'], flux=d['flux']).resample_const(step=0.02)
-        return spec
+        finally:
+            # return to old directory and clean up
+            os.chdir(cwd)
+            shutil.rmtree(tmp)
 
     def _write_fort5(self, teff, logg, feh, alpha):
         with open('fort.5', 'w') as f:
