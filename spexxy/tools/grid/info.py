@@ -41,7 +41,7 @@ def get_spectrum_from_grid(config: str, values: bool, **kwargs):
 
     # get axes
     axes = grid.axes()
-    print('Number of axes: %d' % len(axes))
+    print('Found %d axes: %s' % (len(axes), ' '.join([ax.name for ax in axes])))
 
     # loop axes
     for i, ax in enumerate(axes, 1):
