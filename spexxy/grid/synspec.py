@@ -1,10 +1,11 @@
+import copy
 import shutil
 from tempfile import mkdtemp
 from typing import List, Any, Tuple, Dict, Union
 import pandas as pd
 import os
 
-from .grid import Grid
+from .grid import Grid, GridAxis
 from ..data import Spectrum
 from ..interpolator import Interpolator
 
@@ -205,9 +206,12 @@ class SynspecGrid(Grid):
         self._element = element
         self._range = range
 
-        # load grid and init axis
+        # load grid
         self._models: Grid = self.get_objects(models, [Grid, Interpolator], 'grids', self.log, single=True)
-        self._axes = self._models.axes()
+
+        # add and init axes
+        self._axes = copy.deepcopy(self._models.axes())
+        self._axes.append(GridAxis(name=element, initial=0.))
 
         # vturb
         if isinstance(vturb, int) or isinstance(vturb, float):
