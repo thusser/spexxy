@@ -181,7 +181,7 @@ FORT55 = """10   52   0        ! imode idstd iprin
 class SynspecGrid(Grid):
     """Synthesizes a new spectrum with Synspec at given grid positions."""
 
-    def __init__(self, synspec: str, models: Grid, linelist: str, mollist: str, datadir: str,
+    def __init__(self, synspec: str, models: Grid, linelist: str, mollist: str, datadir: str, element: str,
                  range: Tuple[float, float], vturb: Union[str, float] = 2.0, *args, **kwargs):
         """Constructs a new Grid.
 
@@ -191,6 +191,9 @@ class SynspecGrid(Grid):
             linelist: File with line list
             mollist: File with molecular list
             datadir: Name of data directory
+            element: Element to change
+            range: Tuple of start/end wavelenghts
+            vturb: Either the microturbulence or a CSV file containing a table
         """
         Grid.__init__(self, axes=None, *args, **kwargs)
 
@@ -199,6 +202,7 @@ class SynspecGrid(Grid):
         self._linelist = linelist
         self._mollist = mollist
         self._datadir = datadir
+        self._element = element
         self._range = range
 
         # load grid and init axis
@@ -275,7 +279,7 @@ class SynspecGrid(Grid):
             self._write_fort55(*self._range)
 
             # write element changes
-            self._write_fort56({'Al': el})
+            self._write_fort56({self._element: el})
 
             # create symlinks
             os.symlink(os.path.expandvars(self._synspec), 'synspec')
