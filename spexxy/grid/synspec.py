@@ -182,8 +182,9 @@ FORT55 = """10   52   0        ! imode idstd iprin
 class SynspecGrid(Grid):
     """Synthesizes a new spectrum with Synspec at given grid positions."""
 
-    def __init__(self, synspec: str, models: Grid, linelist: str, mollist: str, datadir: str, element: str,
-                 range: Tuple[float, float], vturb: Union[str, float] = 2.0, *args, **kwargs):
+    def __init__(self, synspec: str, models: Grid, linelist: str, mollist: str, datadir: str,
+                 range: Tuple[float, float], vturb: Union[str, float] = 2.0, elements: List[str] = None,
+                 *args, **kwargs):
         """Constructs a new Grid.
 
         Args:
@@ -192,9 +193,9 @@ class SynspecGrid(Grid):
             linelist: File with line list
             mollist: File with molecular list
             datadir: Name of data directory
-            element: Element to change
             range: Tuple of start/end wavelenghts
             vturb: Either the microturbulence or a CSV file containing a table
+            elements: List of elements to add as new axis
         """
         Grid.__init__(self, axes=None, *args, **kwargs)
 
@@ -203,7 +204,7 @@ class SynspecGrid(Grid):
         self._linelist = linelist
         self._mollist = mollist
         self._datadir = datadir
-        self._element = element
+        self._elements = [] if elements is None else elements
         self._range = range
 
         # load grid
@@ -211,7 +212,8 @@ class SynspecGrid(Grid):
 
         # add and init axes
         self._axes = copy.deepcopy(self._models.axes())
-        self._axes.append(GridAxis(name=element, initial=0.))
+        for el in self._elements:
+            self._axes.append(GridAxis(name=el, initial=0.))
 
         # vturb
         if isinstance(vturb, int) or isinstance(vturb, float):
@@ -237,7 +239,9 @@ class SynspecGrid(Grid):
         Returns:
             Whether or not the given parameter set exists in the grid.
         """
-        return tuple(params[:-1]) in self._models
+        if len(params) != len(self._axes):
+            raise ValueError('Wrong number of parameters.')
+        return tuple(params[:4]) in self._models
 
     def filename(self, params: Tuple) -> str:
         """Returns filename for given parameter set.
@@ -260,11 +264,17 @@ class SynspecGrid(Grid):
             Grid value at given position.
         """
 
+        # check
+        if len(params) != len(self._axes):
+            raise ValueError('Wrong number of parameters.')
+
         # get params
-        teff, logg, feh, alpha, el = params
+        # TODO: check, whether first four axes actually are the parameters we need
+        teff, logg, feh, alpha = params[:4]
+        changes = dict(zip(self._elements, params[4:]))
 
         # find element in models grid
-        mod = self._models.filename(params[:-1])
+        mod = self._models.filename(params[:4])
 
         # temp directory
         tmp = os.path.abspath(mkdtemp())
@@ -283,7 +293,7 @@ class SynspecGrid(Grid):
             self._write_fort55(*self._range)
 
             # write element changes
-            self._write_fort56({self._element: el})
+            self._write_fort56(changes)
 
             # create symlinks
             os.symlink(os.path.expandvars(self._synspec), 'synspec')
