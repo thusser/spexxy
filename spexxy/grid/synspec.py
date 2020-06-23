@@ -278,11 +278,11 @@ class SynspecGrid(Grid):
             self._write_fort56({'Al': el})
 
             # create symlinks
-            os.symlink(self._synspec, 'synspec')
+            os.symlink(os.path.expandvars(self._synspec), 'synspec')
             os.symlink(mod, 'fort.8')
-            os.symlink(self._linelist, 'fort.19')
-            os.symlink(self._mollist, 'fort.26')
-            os.symlink(self._datadir, 'data')
+            os.symlink(os.path.expandvars(self._linelist), 'fort.19')
+            os.symlink(os.path.expandvars(self._mollist), 'fort.26')
+            os.symlink(os.path.expandvars(self._datadir), 'data')
 
             # run synspec
             os.system('./synspec < fort.5 > fort.6')
