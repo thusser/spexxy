@@ -209,7 +209,7 @@ class SynspecGrid(Grid):
         if isinstance(vturb, int) or isinstance(vturb, float):
             self._vturb = float(vturb)
         elif isinstance(vturb, str):
-            filename = os.path.abspath(vturb)
+            filename = os.path.expandvars(vturb)
             self._vturb = pd.read_csv(filename, index_col=['Teff', 'logg', '[M/H]', '[alpha/M]'], dtype=float)
 
     def all(self) -> List[Tuple]:
