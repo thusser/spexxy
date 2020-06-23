@@ -209,7 +209,8 @@ class SynspecGrid(Grid):
         if isinstance(vturb, int) or isinstance(vturb, float):
             self._vturb = float(vturb)
         elif isinstance(vturb, str):
-            self._vturb = pd.read_csv(vturb, index_col=['Teff', 'logg', '[M/H]', '[alpha/M]'], dtype=float)
+            filename = os.path.abspath(vturb)
+            self._vturb = pd.read_csv(filename, index_col=['Teff', 'logg', '[M/H]', '[alpha/M]'], dtype=float)
 
     def all(self) -> List[Tuple]:
         """Return all possible parameter combinations.
