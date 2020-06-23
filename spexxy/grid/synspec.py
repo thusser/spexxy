@@ -265,7 +265,7 @@ class SynspecGrid(Grid):
         os.chdir(tmp)
 
         # write fort.5 and file with non-standard flags
-        self._write_fort5(teff, logg, feh)
+        self._write_fort5(teff, logg, feh, alpha)
         self._write_nstf(teff, logg, feh, alpha)
 
         # write config
@@ -295,7 +295,7 @@ class SynspecGrid(Grid):
         spec = Spectrum(wave=d['wave'], flux=d['flux']).resample_const(step=0.02)
         return spec
 
-    def _write_fort5(self, teff, logg, feh):
+    def _write_fort5(self, teff, logg, feh, alpha):
         with open('fort.5', 'w') as f:
             # write header
             f.write(FORT5_HEADER % (teff, logg))
@@ -304,10 +304,16 @@ class SynspecGrid(Grid):
             for no, el, abund, mode in ABUND_AGSS:
                 # calculate abundance
                 if no == 0:
+                    # H
                     a = 0
                 elif no == 1:
+                    # He
                     a = 10.**(abund - 12) if mode > 0 else 0.
+                elif no in [8, 10, 12, 14, 16, 18, 20, 22]:
+                    # alpha elements
+                    a = 10. ** (abund - 12 + feh + alpha) if mode > 0 else 0.
                 else:
+                    # other
                     a = 10. ** (abund - 12 + feh) if mode > 0 else 0.
 
                 # write it
@@ -316,14 +322,14 @@ class SynspecGrid(Grid):
             # write footer
             f.write(FORT5_FOOTER)
 
-    def _write_nstf(self, teff, logg, m_h, alpha_m):
+    def _write_nstf(self, teff, logg, feh, alpha_m):
         """Write file with non-standard flags."""
 
         # get vturb
         if isinstance(self._vturb, float):
             vturb = self._vturb
         elif isinstance(self._vturb, pd.DataFrame):
-            vturb = float(self._vturb.loc[teff, logg, m_h, alpha_m])
+            vturb = float(self._vturb.loc[teff, logg, feh, alpha_m])
         else:
             return
 
