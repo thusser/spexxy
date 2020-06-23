@@ -1,6 +1,6 @@
 import shutil
 from tempfile import mkdtemp
-from typing import List, Any, Tuple, Dict
+from typing import List, Any, Tuple, Dict, Union
 import pandas as pd
 import os
 
@@ -182,7 +182,7 @@ class SynspecGrid(Grid):
     """Synthesizes a new spectrum with Synspec at given grid positions."""
 
     def __init__(self, synspec: str, models: Grid, linelist: str, mollist: str, datadir: str,
-                 range: Tuple[float, float], *args, **kwargs):
+                 range: Tuple[float, float], vturb: Union[str, float] = 2.0, *args, **kwargs):
         """Constructs a new Grid.
 
         Args:
@@ -201,11 +201,15 @@ class SynspecGrid(Grid):
         self._datadir = datadir
         self._range = range
 
-        # load grids
+        # load grid and init axis
         self._models: Grid = self.get_objects(models, [Grid, Interpolator], 'grids', self.log, single=True)
-
-        # init grid
         self._axes = self._models.axes()
+
+        # vturb
+        if isinstance(vturb, int) or isinstance(vturb, float):
+            self._vturb = float(vturb)
+        elif isinstance(vturb, str):
+            self._vturb = pd.read_csv(vturb, index_col=['Teff', 'logg', '[M/H]', '[alpha/M]'], dtype=float)
 
     def all(self) -> List[Tuple]:
         """Return all possible parameter combinations.
@@ -262,7 +266,7 @@ class SynspecGrid(Grid):
 
         # write fort.5 and file with non-standard flags
         self._write_fort5(teff, logg, feh)
-        self._write_nstf()
+        self._write_nstf(teff, logg, feh, alpha)
 
         # write config
         self._write_fort55(*self._range)
@@ -312,9 +316,20 @@ class SynspecGrid(Grid):
             # write footer
             f.write(FORT5_FOOTER)
 
-    def _write_nstf(self):
+    def _write_nstf(self, teff, logg, m_h, alpha_m):
+        """Write file with non-standard flags."""
+
+        # get vturb
+        if isinstance(self._vturb, float):
+            vturb = self._vturb
+        elif isinstance(self._vturb, pd.DataFrame):
+            vturb = float(self._vturb.loc[teff, logg, m_h, alpha_m])
+        else:
+            return
+
+        # write file
         with open('nstf', 'w') as f:
-            f.write('ND=64,VTB=%.2f, IFMOL=1' % 1.78)
+            f.write('ND=64,VTB=%.2f, IFMOL=1' % vturb)
 
     def _write_fort55(self, wstart, wend):
         with open('fort.55', 'w') as f:
