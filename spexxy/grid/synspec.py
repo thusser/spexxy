@@ -259,7 +259,7 @@ class SynspecGrid(Grid):
         mod = self._models.filename(params[:-1])
 
         # temp directory
-        tmp = os.path.abspath(mkdtemp(dir='tmp'))
+        tmp = os.path.abspath(mkdtemp())
 
         # change path
         cwd = os.getcwd()
