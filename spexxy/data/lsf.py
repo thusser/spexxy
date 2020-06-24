@@ -443,6 +443,10 @@ class EmpiricalLSF(LSF):
         if self.ctype1 != spec.wave_mode:
             raise ValueError("Wave modes of LSF and spectrum do not match.")
 
+        # alreay good?
+        if self.wave_lsf() == spec.wave:
+            return
+
         # get number of pixels required for LSF and obtain new sampling
         npix = math.ceil(abs(self.crval1) / spec.wave_step)
         wave_lsf = np.arange(-spec.wave_step * npix, spec.wave_step * npix + spec.wave_step * 0.5, spec.wave_step)
