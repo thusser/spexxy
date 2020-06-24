@@ -2,6 +2,8 @@
 
 ### v2.5
 * Split MainRoutine into MainRoutine and FilesRoutine, allowing for routines that don't run on files.
+* Added a SynspecGrid which can synthesize spectra using Synspec
+* Added some command line tools
 
 ### v2.4.1 (2020-06-19)
 * Minor fix for lmfit call
