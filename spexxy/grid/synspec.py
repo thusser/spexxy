@@ -7,7 +7,6 @@ import os
 
 from .grid import Grid, GridAxis
 from ..data import Spectrum
-from ..interpolator import Interpolator
 
 ABUND_AGSS = [
     (1, 'H', 12., 2),
@@ -197,6 +196,7 @@ class SynspecGrid(Grid):
             vturb: Either the microturbulence or a CSV file containing a table
             elements: List of elements to add as new axis
         """
+        from ..interpolator import Interpolator
         Grid.__init__(self, axes=None, *args, **kwargs)
 
         # store
@@ -213,7 +213,7 @@ class SynspecGrid(Grid):
         # add and init axes
         self._axes = copy.deepcopy(self._models.axes())
         for el in self._elements:
-            self._axes.append(GridAxis(name=el, initial=0.))
+            self._axes.append(GridAxis(name=el, initial=0.1, min=-10., max=10.))
 
         # vturb
         if isinstance(vturb, int) or isinstance(vturb, float):
