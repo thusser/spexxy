@@ -71,8 +71,8 @@ class LinearInterpolator(Interpolator):
         # let's get all possible values for the given axis
         axisValues = self._grid.axis_values(axis)
 
-        # if params[axis] is on axis; return it directly
-        if params[axis] in axisValues:
+        # if params[axis] is on axis or axis is continuous, return it directly
+        if axisValues is None or params[axis] in axisValues:
             if axis == 0:
                 return self._grid(tuple(params))
             else:
