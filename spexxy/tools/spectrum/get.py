@@ -116,7 +116,6 @@ def get_spectrum_from_grid(params: List[Tuple[str, float]], output: str, config:
             params = dict(zip([ax.name for ax in obj.axes()], params))
 
         # check params
-        print([ax.name for ax in obj.axes()], params)
         check_params([ax.name for ax in obj.axes()], params)
 
         # get parameters
