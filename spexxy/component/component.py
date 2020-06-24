@@ -53,7 +53,7 @@ class Component(spexxyObject):
 
     @property
     def param_names(self):
-        return sorted(self.parameters.keys())
+        return self.parameters.keys()
 
     def set(self, name, **kwargs):
         """Adds a new parameter with the given name or changes values of an existing one.
