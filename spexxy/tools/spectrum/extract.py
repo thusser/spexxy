@@ -1,14 +1,10 @@
+import glob
 import logging
 import argparse
-import sys
-from typing import List, Tuple, Dict
-import yaml
+import os
+from typing import List
 
-from spexxy.component import SpectrumComponent
-from spexxy.data import Spectrum, SpectrumFits, FitsSpectrum, SpectrumFitsHDU
-from spexxy.grid import Grid
-from spexxy.interpolator import Interpolator
-from spexxy.object import create_object
+from spexxy.data import FitsSpectrum, SpectrumFitsHDU
 
 log = logging.getLogger(__name__)
 
@@ -17,21 +13,39 @@ def add_parser(subparsers):
     # init parser
     parser = subparsers.add_parser('extract', help='Extract wavelength range from spectrum',
                                    formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('input', type=str, help='Input spectrum')
-    parser.add_argument('output', type=str, help='Output spectrum')
     parser.add_argument('start', type=float, help='Start of wavelength range')
     parser.add_argument('end', type=float, help='End of wavelength range')
+    parser.add_argument('input', type=str, help='Input spectrum', nargs='+')
+    parser.add_argument('-p', '--prefix', type=str, help='Output file prefix', default='extracted_')
 
     # argparse wrapper for create_grid
-    parser.set_defaults(func=lambda args: extract_spectrum(**vars(args)))
+    parser.set_defaults(func=lambda args: extract_spectra(**vars(args)))
 
 
-def extract_spectrum(input: str, output: str, start: float, end: float, **kwargs):
+def extract_spectra(input: List[str], prefix: str, start: float, end: float, **kwargs):
+    # get list of filenames
+    files = []
+    for f in input:
+        if '*' in input or '?' in input:
+            files.extend(glob.glob(f))
+        else:
+            files.append(f)
+
+    # make unique
+    files = sorted(list(set(files)))
+
+    # loop files
+    for i, f in enumerate(files, 1):
+        print('(%d/%d) %s' % (i, len(files), f))
+        extract_spectrum(f, prefix, start, end)
+
+
+def extract_spectrum(input: str, prefix: str, start: float, end: float):
     """Extracts the given wavelength range from input and store it as output.
 
     Args:
         input: Input filename
-        output: Output filename
+        prefix: Output filename prefix
         start: Wavelength start
         end: Wavelength end
     """
@@ -39,7 +53,7 @@ def extract_spectrum(input: str, output: str, start: float, end: float, **kwargs
     # load spectrum
     with FitsSpectrum(input) as fs_in:
         # open spectrum to write
-        with FitsSpectrum(output, 'w') as fs_out:
+        with FitsSpectrum(prefix + os.path.basename(input), 'w') as fs_out:
             # copy extracted spectrum
             fs_out.spectrum = fs_in.spectrum.extract(start, end)
 
