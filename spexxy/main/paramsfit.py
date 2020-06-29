@@ -413,7 +413,7 @@ class ParamsFit(FilesRoutine):
 
                 # show
                 if param.vary:
-                    values.append('%s=%.2f' % (name, val))
+                    values.append('%s=%.3f' % (name, val))
 
             # print it
             if len(values) > 0:
