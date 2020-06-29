@@ -1,3 +1,4 @@
+import os
 from typing import Callable, Union
 
 from .component import Component
@@ -38,7 +39,7 @@ class SpectrumComponent(Component):
         if isinstance(lsf, LSF):
             self._lsf = lsf
         elif isinstance(lsf, str):
-            self._lsf = LSF.load(lsf)
+            self._lsf = LSF.load(os.path.expandvars(lsf))
         elif isinstance(lsf, dict):
             self._lsf = create_object(lsf)
         else:
