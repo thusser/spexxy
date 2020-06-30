@@ -35,7 +35,7 @@ class MultiMain(FilesRoutine):
         self._factors = sorted(factors, reverse=True)
 
         # find main routines
-        self._routines = self.get_objects(routines, MainRoutine, 'routines')
+        self._routines = self.get_objects(routines, FilesRoutine, 'routines')
 
     def parameters(self) -> List[str]:
         """Get list of parameters fitted by this routine.
