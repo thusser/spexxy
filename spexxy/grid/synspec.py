@@ -228,7 +228,15 @@ class SynspecGrid(Grid):
         Returns:
             All possible parameter combinations.
         """
-        return self._models.all()
+
+        # get all params from model
+        models = self._models.all()
+
+        # vturb table?
+        if isinstance(self._vturb, pd.DataFrame):
+            return list(filter(lambda p: p in self._vturb.index, models))
+        else:
+            return models
 
     def __contains__(self, params: Tuple) -> bool:
         """Checks, whether the grid contains a given parameter set.
@@ -241,7 +249,17 @@ class SynspecGrid(Grid):
         """
         if len(params) != len(self._axes):
             raise ValueError('Wrong number of parameters.')
-        return tuple(params[:4]) in self._models
+
+        # check models
+        if tuple(params[:4]) not in self._models:
+            return False
+
+        # check vturb
+        if isinstance(self._vturb, pd.DataFrame) and tuple(params[:4]) not in self._vturb.index:
+            return False
+
+        # seems to exist
+        return True
 
     def filename(self, params: Tuple) -> str:
         """Returns filename for given parameter set.
