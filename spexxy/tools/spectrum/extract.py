@@ -25,27 +25,27 @@ def add_parser(subparsers):
 def extract_spectra(input: List[str], prefix: str, start: float, end: float, **kwargs):
     # get list of filenames
     files = []
-    for f in input:
+    for filename in input:
         if '*' in input or '?' in input:
-            files.extend(glob.glob(f))
+            files.extend(glob.glob(filename))
         else:
-            files.append(f)
+            files.append(filename)
 
     # make unique
     files = sorted(list(set(files)))
 
     # loop files
-    for i, f in enumerate(files, 1):
-        print('(%d/%d) %s' % (i, len(files), f))
-        extract_spectrum(f, prefix, start, end)
+    for i, filename in enumerate(files, 1):
+        print('(%d/%d) %s' % (i, len(files), filename))
+        extract_spectrum(filename, prefix + os.path.basename(filename), start, end)
 
 
-def extract_spectrum(input: str, prefix: str, start: float, end: float):
+def extract_spectrum(input: str, output: str, start: float, end: float):
     """Extracts the given wavelength range from input and store it as output.
 
     Args:
         input: Input filename
-        prefix: Output filename prefix
+        output: Output filename
         start: Wavelength start
         end: Wavelength end
     """
@@ -53,7 +53,7 @@ def extract_spectrum(input: str, prefix: str, start: float, end: float):
     # load spectrum
     with FitsSpectrum(input) as fs_in:
         # open spectrum to write
-        with FitsSpectrum(prefix + os.path.basename(input), 'w') as fs_out:
+        with FitsSpectrum(output, 'w') as fs_out:
             # copy extracted spectrum
             fs_out.spectrum = fs_in.spectrum.extract(start, end)
 
