@@ -956,68 +956,77 @@ class SpectrumFitsHDU(Spectrum):
         """
         Spectrum.__init__(self, *args, **kwargs)
 
-        # store
-        self._hdu = hdu
-        self._primary = primary
-        self._dtype = dtype
+        # got a spec?
+        if 'spec' in kwargs and isinstance(kwargs['spec'], SpectrumFitsHDU):
+            # init from given spec
+            spec = kwargs['spec']
+            self._primary = spec._primary
+            self._hdu = spec._hdu
+            self._dtype = spec._dtype
 
-        # init HDU
-        if hdu:
-            # overwrite primary, according to HDU
-            self._primary = isinstance(hdu, fits.PrimaryHDU)
+        else:
+            # store
+            self._hdu = hdu
+            self._primary = primary
+            self._dtype = dtype
 
-            # get data from HDU
-            self.flux = hdu.data.astype(Spectrum.dtype)
+            # init HDU
+            if hdu:
+                # overwrite primary, according to HDU
+                self._primary = isinstance(hdu, fits.PrimaryHDU)
 
-            # get header
-            hdr = hdu.header
+                # get data from HDU
+                self.flux = hdu.data.astype(Spectrum.dtype)
 
-            # do we have an extra HDU for wavelength array?
-            if 'WAVE' in hdr:
-                # yes, check hdu_list
-                if hdu_list is None:
-                    raise ValueError('No HDU list given for loading '
-                                     'wavelength array.')
+                # get header
+                hdr = hdu.header
 
-                # get HDU and data
-                wave_hdu = hdu_list[hdr['WAVE']]
-                self._wavelength = wave_hdu.data
-                self._wave_start = self._wavelength[0]
-                self._wave_step = 0
+                # do we have an extra HDU for wavelength array?
+                if 'WAVE' in hdr:
+                    # yes, check hdu_list
+                    if hdu_list is None:
+                        raise ValueError('No HDU list given for loading '
+                                         'wavelength array.')
 
-                # type
-                if "CTYPE1" in wave_hdu.header.keys() and \
-                        (wave_hdu.header["CTYPE1"] == "WAVE-LOG" or
-                         wave_hdu.header["CTYPE1"] == "AWAV-LOG"):
-                    self._wave_mode = Spectrum.Mode.LOGLAMBDA
+                    # get HDU and data
+                    wave_hdu = hdu_list[hdr['WAVE']]
+                    self._wavelength = wave_hdu.data
+                    self._wave_start = self._wavelength[0]
+                    self._wave_step = 0
+
+                    # type
+                    if "CTYPE1" in wave_hdu.header.keys() and \
+                            (wave_hdu.header["CTYPE1"] == "WAVE-LOG" or
+                             wave_hdu.header["CTYPE1"] == "AWAV-LOG"):
+                        self._wave_mode = Spectrum.Mode.LOGLAMBDA
+                    else:
+                        self._wave_mode = Spectrum.Mode.LAMBDA
+
+                    # convert to Angstrom, if necessary
+                    units = wave_hdu.header['CUNIT1'] if 'CUNIT1' in wave_hdu.header else 'Angstrom'
+                    self._wavelength_to_angstrom(units)
+
                 else:
-                    self._wave_mode = Spectrum.Mode.LAMBDA
+                    # no, get wavelength array info
+                    self._wave_start = hdr["START1"] if "START1" in hdr else hdr[
+                        "CRVAL1"]
+                    self._wave_step = hdr["STEP1"] if "STEP1" in hdr else hdr["CDELT1"]
+                    if 'CRPIX1' in hdr and hdr['CRPIX1'] > 1:
+                        self._wave_start -= (hdr['CRPIX1'] - 1) * self._wave_step
+                    self._wavelength = None
+                    if "CTYPE1" in hdr.keys() and \
+                            (hdr["CTYPE1"] == "WAVE-LOG" or
+                             hdr["CTYPE1"] == "AWAV-LOG"):
+                        self._wave_mode = Spectrum.Mode.LOGLAMBDA
+                    else:
+                        self._wave_mode = Spectrum.Mode.LAMBDA
 
-                # convert to Angstrom, if necessary
-                units = wave_hdu.header['CUNIT1'] if 'CUNIT1' in wave_hdu.header else 'Angstrom'
-                self._wavelength_to_angstrom(units)
+                    # convert to Angstrom, if necessary
+                    units = hdr['CUNIT1'] if 'CUNIT1' in hdr else 'Angstrom'
+                    self._wavelength_to_angstrom(units)
 
-            else:
-                # no, get wavelength array info
-                self._wave_start = hdr["START1"] if "START1" in hdr else hdr[
-                    "CRVAL1"]
-                self._wave_step = hdr["STEP1"] if "STEP1" in hdr else hdr["CDELT1"]
-                if 'CRPIX1' in hdr and hdr['CRPIX1'] > 1:
-                    self._wave_start -= (hdr['CRPIX1'] - 1) * self._wave_step
-                self._wavelength = None
-                if "CTYPE1" in hdr.keys() and \
-                        (hdr["CTYPE1"] == "WAVE-LOG" or
-                         hdr["CTYPE1"] == "AWAV-LOG"):
-                    self._wave_mode = Spectrum.Mode.LOGLAMBDA
-                else:
-                    self._wave_mode = Spectrum.Mode.LAMBDA
-
-                # convert to Angstrom, if necessary
-                units = hdr['CUNIT1'] if 'CUNIT1' in hdr else 'Angstrom'
-                self._wavelength_to_angstrom(units)
-
-            # is it valid?
-            self._valid = np.zeros(self.flux.shape, dtype=np.bool)
+                # is it valid?
+                self._valid = np.zeros(self.flux.shape, dtype=np.bool)
 
     def _wavelength_to_angstrom(self, units: str):
         """Convert wavelength units to Angstrom
@@ -1046,7 +1055,8 @@ class SpectrumFitsHDU(Spectrum):
     @property
     def header(self):
         """FITS header object"""
-        return self._hdu.header
+        hdu, _ = self._hdu()
+        return hdu.header
 
     @property
     def primary(self):
