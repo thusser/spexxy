@@ -77,47 +77,47 @@ class Spectrum(object):
             self._wave_mode = spec.wave_mode
             self._valid = spec.valid
 
+        # wavelength array given?
+        if wave is not None:
+            # init from wavelength
+            self._wave_start = wave[0]
+            self._wave_step = 0.
+            self._wavelength = wave
+            self._wave_mode = wave_mode
+            wave_count = len(wave)
+
         else:
-            # wavelength array given?
-            if wave is not None:
-                # init from wavelength
-                self._wave_start = wave[0]
-                self._wave_step = 0.
-                self._wavelength = wave
-                self._wave_mode = wave_mode
-                wave_count = len(wave)
+            # calculate wave_count
+            if wave_count is None and wave_end is not None:
+                wave_count = int((wave_end - wave_start) / wave_step)
+
+        # init
+        if wave_start is not None and wave_step is not None and wave_mode is not None:
+            self._wave_start = wave_start
+            self._wave_step = wave_step
+            self._wavelength = None
+            self._wave_mode = wave_mode
+
+        # initialize flux and valid only if we got a valid wavelength array
+        if self._wave_step is not None:
+            # if no flux is given, initialize it empty
+            if flux is None:
+                # create flux array and fill with NaNs
+                flux = np.empty((wave_count), dtype=Spectrum.dtype)
+                flux[:] = np.nan
+
+                # if also no valid array is given, it's all invalid now
+                if valid is None:
+                    # fill valid with zeros
+                    valid = np.zeros(flux.shape, dtype=np.bool)
 
             else:
-                # calculate wave_count
-                if wave_count is None and wave_end is not None:
-                    wave_count = int((wave_end - wave_start) / wave_step)
+                # if we got some flux, but no valid array, we assume all valid
+                valid = np.ones(flux.shape, dtype=np.bool)
 
-                # init
-                self._wave_start = wave_start
-                self._wave_step = wave_step
-                self._wavelength = None
-                self._wave_mode = wave_mode
-
-            # initialize flux and valid only if we got a valid wavelength array
-            if self._wave_step is not None:
-                # if no flux is given, initialize it empty
-                if flux is None:
-                    # create flux array and fill with NaNs
-                    flux = np.empty((wave_count), dtype=Spectrum.dtype)
-                    flux[:] = np.nan
-
-                    # if also no valid array is given, it's all invalid now
-                    if valid is None:
-                        # fill valid with zeros
-                        valid = np.zeros(flux.shape, dtype=np.bool)
-
-                else:
-                    # if we got some flux, but no valid array, we assume all valid
-                    valid = np.ones(flux.shape, dtype=np.bool)
-
-                # finally set flux and valid
-                self.flux = flux
-                self._valid = valid
+            # finally set flux and valid
+            self.flux = flux
+            self._valid = valid
 
     @property
     def wave(self) -> np.ndarray:
