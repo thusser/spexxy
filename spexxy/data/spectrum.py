@@ -99,7 +99,7 @@ class Spectrum(object):
             self._wave_mode = wave_mode
 
         # initialize flux and valid only if we got a valid wavelength array
-        if self._wave_step is not None:
+        if wave_step is not None:
             # if no flux is given, initialize it empty
             if flux is None:
                 # create flux array and fill with NaNs
@@ -115,8 +115,10 @@ class Spectrum(object):
                 # if we got some flux, but no valid array, we assume all valid
                 valid = np.ones(flux.shape, dtype=np.bool)
 
-            # finally set flux and valid
+        # finally set flux and valid
+        if flux is not None:
             self.flux = flux
+        if valid is not None:
             self._valid = valid
 
     @property
@@ -568,10 +570,10 @@ class Spectrum(object):
             Extracted spectrum
         """
         if self._wave_step != 0.:
-            return self.__class__(flux=np.copy(self.flux[i1:i2]), wave_start=self.wave[i1],
+            return self.__class__(spec=self, flux=np.copy(self.flux[i1:i2]), wave_start=self.wave[i1],
                                   wave_step=self._wave_step, wave_mode=self._wave_mode)
         else:
-            return self.__class__(flux=np.copy(self.flux[i1:i2]), wave=np.copy(self.wave[i1:i2]),
+            return self.__class__(spec=self, flux=np.copy(self.flux[i1:i2]), wave=np.copy(self.wave[i1:i2]),
                                   wave_mode=self._wave_mode)
 
     def extract(self, w1: float, w2: float) -> 'Spectrum':
