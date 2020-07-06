@@ -1055,7 +1055,7 @@ class SpectrumFitsHDU(Spectrum):
     @property
     def header(self):
         """FITS header object"""
-        hdu, _ = self._hdu()
+        hdu, _ = self.hdu()
         return hdu.header
 
     @property
