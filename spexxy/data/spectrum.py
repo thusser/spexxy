@@ -960,9 +960,9 @@ class SpectrumFitsHDU(Spectrum):
         if 'spec' in kwargs and isinstance(kwargs['spec'], SpectrumFitsHDU):
             # init from given spec
             spec = kwargs['spec']
-            self._primary = spec._primary
-            self._hdu = spec._hdu
-            self._dtype = spec._dtype
+            self._primary = primary
+            self._hdu = spec._hdu if hdu is None else hdu
+            self._dtype = spec._dtype if dtype is None else dtype
 
         else:
             # store
