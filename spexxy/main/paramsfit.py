@@ -646,7 +646,7 @@ class ParamsFit(FilesRoutine):
             # write spectra best fit, good pixels mask, residuals and
             # multiplicative polynomial
             if best_fit is not None:
-                fs.best_fit = best_fit
+                fs.best_fit = SpectrumFitsHDU(spec=best_fit, primary=False)
                 fs.residuals = self._spec.flux - best_fit.flux
             fs.good_pixels = self._valid
             fs.mult_poly = self._mult_poly.values
