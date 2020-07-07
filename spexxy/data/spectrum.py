@@ -961,7 +961,7 @@ class SpectrumFitsHDU(Spectrum):
             # init from given spec
             spec = kwargs['spec']
             self._primary = primary
-            self._hdu = spec._hdu if hdu is None else hdu
+            self._hdu = spec._hdu.copy() if hdu is None else hdu
             self._dtype = spec._dtype if dtype is None else dtype
 
         else:
