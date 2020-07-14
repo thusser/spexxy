@@ -1,7 +1,6 @@
 import os
 
 import numpy as np
-import pytest
 from astropy.io import fits
 
 from spexxy.mask import MaskFromPath
