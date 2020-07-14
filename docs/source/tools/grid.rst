@@ -4,6 +4,27 @@ grid
 The methods in `spexxytools grid` can be used to create and manipulate :class:`FilesGrid <spexxy.grid.FilesGrid>`
 grids.
 
+
+info
+----
+Information about an existing grid can be inspected using `spexxytools grid info` with a grid configuration as
+paramater::
+
+    usage: spexxytools grid info [-h] [-v] config
+
+    positional arguments:
+      config        Config for grid
+
+    optional arguments:
+      -h, --help    show this help message and exit
+      -v, --values  Show all values on axes (default: False)
+
+The file specified in the parameters must contain the configuration for a grid (like) object, e.g. something like this::
+
+    class: spexxy.grid.FilesGrid
+    filename: /path/to/grid.csv
+
+
 create
 ------
 Using `spexxytools grid create` a new :class:`FilesGrid <spexxy.grid.FilesGrid>` can be created from files in
