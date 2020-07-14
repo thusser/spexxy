@@ -137,6 +137,7 @@ class FitsSpectrum(object):
             return self._hdu_as_spectrum[fits_hdu]
 
         # workaround: if CRVAL1, CDELT1 do not exist in HDU, take from primary
+        """
         if 'CRVAL1' not in fits_hdu.header:
             # copy, if possible
             if 'CRVAL1' in self._fits[0].header:
@@ -144,6 +145,11 @@ class FitsSpectrum(object):
                 fits_hdu.header['CDELT1'] = self._fits[0].header['CDELT1']
             elif 'WAVE' in self._fits[0].header:
                 fits_hdu.header['WAVE'] = self._fits[0].header['WAVE']
+        """
+
+        # match data?
+        if 'CRVAL1' not in fits_hdu.header and 'WAVE' not in fits_hdu.header:
+            raise ValueError('Not a spectrum extension.')
 
         # create spectrum and return it
         self._hdu_as_spectrum[fits_hdu] = SpectrumFitsHDU(fits_hdu, hdu_list=self._fits)

@@ -21,7 +21,7 @@ def add_parser(subparsers):
     parser.add_argument('spectra', help='List of processed spectra', type=str, nargs='+')
     parser.add_argument('-o', '--output', help='File to write tellurics to', type=str, default="tellurics.fits")
     parser.add_argument('-l', '--snlimit', help='minimum SNR to use', type=float)
-    parser.add_argument('-f', '--snfrac', help='if snlimit is not given, calculate it from X% best',
+    parser.add_argument('-f', '--snfrac', help='if snlimit is not given, calculate it from X percent best',
                         type=float, default=10)
     parser.add_argument('-w', '--weight', help='weight by SNR', action="store_true")
     parser.add_argument('-r', '--resample', help='resample to start,step,count', nargs=3,

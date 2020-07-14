@@ -1,26 +1,25 @@
-from typing import Callable
+import os
+from typing import Callable, Union
 
 from .component import Component
-from ..data import LOSVD, Spectrum
+from ..data import LOSVD, Spectrum, LSF
+from ..object import create_object
 
 
 class SpectrumComponent(Component):
     """SpectrumComponent is the base Component class for all components that deal with spectra."""
 
     def __init__(self, name: str, model_func: Callable, losvd_hermite: bool = False, vac_to_air: bool = False,
-                 *args, **kwargs):
+                 lsf: Union[LSF, str, dict] = None, *args, **kwargs):
         """Initializes a new SpectrumComponent.
 
-        Parameters
-        ----------
-        name : str
-            Name of new component
-        model_func : Callable
-            Method that returns a spectrum for the given parameters, should be implemented by derived classes
-        losvd_hermite : bool
-            Whether or not Hermite polynomials should be used for the LOSVD
-        vac_to_air : bool
-            If True, vac_to_air() is called on spectra returned from the model_func
+        Args:
+            name: Name of new component
+            model_func: Method that returns a spectrum for the given parameters,
+                        should be implemented by derived classes
+            losvd_hermite: Whether or not Hermite polynomials should be used for the LOSVD
+            vac_to_air: If True, vac_to_air() is called on spectra returned from the model_func
+            lsf: LSF to apply to spectrum
         """
         Component.__init__(self, name, *args, **kwargs)
         self._vac_to_air = vac_to_air
@@ -36,17 +35,23 @@ class SpectrumComponent(Component):
             self.set('h5', min=-0.3, max=0.3, value=0.)
             self.set('h6', min=-0.3, max=0.3, value=0.)
 
+        # get lsf
+        if isinstance(lsf, LSF):
+            self._lsf = lsf
+        elif isinstance(lsf, str):
+            self._lsf = LSF.load(os.path.expandvars(lsf))
+        elif isinstance(lsf, dict):
+            self._lsf = create_object(lsf)
+        else:
+            self._lsf = None
+
     def __call__(self, **kwargs):
         """Model function that creates a spectrum with the given parameters and shift/convolve it using the given LOSVD.
 
-        Parameters
-        ----------
-        **kwargs
-            Values to overwrite
+        Args:
+            kwargs: Values to overwrite
 
-        Returns
-        -------
-        Spectrum
+        Returns:
             The model from the component
         """
 
@@ -61,6 +66,11 @@ class SpectrumComponent(Component):
 
         # get  model
         model = self._model_func()
+
+        # apply LSF
+        if self._lsf is not None:
+            self._lsf.resample(model)
+            model = self._lsf(model)
 
         # apply losvd
         self._apply_losvd(model, losvd)
@@ -78,12 +88,9 @@ class SpectrumComponent(Component):
 
         WARNING: We will NOT FIT line broadening, if model spectra are in LAMBDA mode!
 
-        Parameters
-        ----------
-        model
-            Model to apply LOSVD to.
-        losvd : list
-            LOSVD parameters (v, sig, <h3, h4, h5, h6>)
+        Args:
+            model: Model to apply LOSVD to.
+            losvd: LOSVD parameters (v, sig, <h3, h4, h5, h6>)
         """
         if losvd[1] < 1e-5 or model.wave_mode == Spectrum.Mode.LAMBDA:
             # in LAMBDA mode, no LOSVD is supported

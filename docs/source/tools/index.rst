@@ -5,3 +5,7 @@ spexxy tools
    :maxdepth: 2
 
    grid
+   isochrone
+   lsf
+   spectrum
+   tellurics

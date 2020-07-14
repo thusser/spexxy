@@ -23,3 +23,18 @@ WeightRanges
 ------------
 .. autoclass:: spexxy.weight.WeightRanges
     :members:
+
+WeightFromSNR
+-------------
+.. autoclass:: spexxy.weight.WeightFromSNR
+    :members:
+
+WeightFromGrid
+--------------
+.. autoclass:: spexxy.weight.WeightFromGrid
+    :members:
+
+WeightFromGridNearest
+---------------------
+.. autoclass:: spexxy.weight.WeightFromGridNearest
+    :members:

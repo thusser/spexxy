@@ -13,7 +13,7 @@ from spexxy.component import Component
 from spexxy.mask import Mask
 from spexxy.weight import Weight
 from spexxy.data import SpectrumFitsHDU
-from .main import MainRoutine
+from .base import FilesRoutine
 from spexxy.tools.plot import plot_spectrum
 
 
@@ -97,7 +97,7 @@ class Legendre:
         return self.values
 
 
-class ParamsFit(MainRoutine):
+class ParamsFit(FilesRoutine):
     """ParamsFit is a fitting routine for spexxy that uses a Levenberg-Marquardt optimization to fit a set of
     model spectra (components) to a given spectrum.
     """
@@ -125,7 +125,7 @@ class ParamsFit(MainRoutine):
             min_valid_pixels: Fraction of minimum number of required pixels to continue with fit.
             plot_iterations: Plot all iterations into a PDF file.
         """
-        MainRoutine.__init__(self, *args, **kwargs)
+        FilesRoutine.__init__(self, *args, **kwargs)
 
         # remember variables
         self._max_fev = maxfev
@@ -219,7 +219,7 @@ class ParamsFit(MainRoutine):
         """
 
         # call base and add columns Success
-        return MainRoutine.columns(self) + ['Success', 'RedChi2']
+        return FilesRoutine.columns(self) + ['Success', 'RedChi2']
 
     @property
     def components(self) -> List[Component]:
@@ -413,7 +413,7 @@ class ParamsFit(MainRoutine):
 
                 # show
                 if param.vary:
-                    values.append('%s=%.2f' % (name, val))
+                    values.append('%s=%.3f' % (name, val))
 
             # print it
             if len(values) > 0:

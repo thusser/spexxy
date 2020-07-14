@@ -70,7 +70,7 @@ class FilesGrid(Grid):
         Returns:
             Filename.
         """
-        return self._data.loc[tuple(params)].Filename
+        return os.path.join(self._root, self._data.loc[tuple(params)].Filename)
 
     def __call__(self, params: Tuple) -> Any:
         """Fetches the value for the given parameter set.

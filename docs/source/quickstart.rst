@@ -4,16 +4,11 @@ Quickstart
 Installing *spexxy*
 -------------------
 
-Download or clone the repository. Then install the requirements::
+The easiest way for installing *spexxy* is using pip::
 
-    pip3 install -r requirements.txt
+    pip3 install spexxy
 
-Finally, install *spexxy*::
-
-    python3 setup.py install
-
-If you want to install *spexxy* without root permissions for the local user only,
-you add the `--user` switch to both commands.
+Add the `--user` switch to install it in your user directory (no root required).
 
 
 Running *spexxy*
@@ -104,7 +99,7 @@ Note that for better readability, the config file can also be written in the fol
 
   components:
     star:
-      class: spexxy.component.Grid
+      class: spexxy.component.GridComponent
       interpolator: phx
       init:
       - class: spexxy.init.InitFromValues

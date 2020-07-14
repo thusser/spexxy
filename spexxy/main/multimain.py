@@ -2,10 +2,10 @@ import numpy as np
 from typing import List, Dict
 
 from spexxy.component import Component, TelluricsComponent
-from .main import MainRoutine
+from .base import FilesRoutine
 
 
-class MultiMain(MainRoutine):
+class MultiMain(FilesRoutine):
     """MultiRun iterates over a given set of main routines and runs them sequentially."""
 
     def __init__(self, routines: List = None, iterations: int = None, max_iterations: int = 8,
@@ -24,7 +24,7 @@ class MultiMain(MainRoutine):
             damped: If True the fit is repeated with a damping factor in case the fit does not converge.
             factors: List of damping factors used if the fit does not converge.
         """
-        MainRoutine.__init__(self, *args, **kwargs)
+        FilesRoutine.__init__(self, *args, **kwargs)
 
         # remember variables
         self._iterations = iterations
@@ -35,7 +35,7 @@ class MultiMain(MainRoutine):
         self._factors = sorted(factors, reverse=True)
 
         # find main routines
-        self._routines = self.get_objects(routines, MainRoutine, 'routines')
+        self._routines = self.get_objects(routines, FilesRoutine, 'routines')
 
     def parameters(self) -> List[str]:
         """Get list of parameters fitted by this routine.
@@ -63,11 +63,11 @@ class MultiMain(MainRoutine):
 
         # call base and add columns Iterations, Success and Convergence
         if self._max_iterations is not None and self._damped:
-            return MainRoutine.columns(self) + ['Iterations', 'Success', 'Convergence', 'Damping Factor']
+            return FilesRoutine.columns(self) + ['Iterations', 'Success', 'Convergence', 'Damping Factor']
         elif self._max_iterations is not None:
-            return MainRoutine.columns(self) + ['Iterations', 'Success', 'Convergence']
+            return FilesRoutine.columns(self) + ['Iterations', 'Success', 'Convergence']
 
-        return MainRoutine.columns(self) + ['Iterations', 'Success']
+        return FilesRoutine.columns(self) + ['Iterations', 'Success']
 
     def __call__(self, filename: str) -> List[float]:
         """Process the given file.

@@ -13,7 +13,7 @@ def add_parser(subparsers):
 
 def run(args):
     # load LSF and spec
-    lsf = LSF(args.lsf)
+    lsf = LSF.load(args.lsf)
     spec = Spectrum.load(args.spectrum)
 
     # scale

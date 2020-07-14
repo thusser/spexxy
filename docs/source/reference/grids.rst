@@ -42,3 +42,8 @@ FilesGrid
 ---------
 .. autoclass:: spexxy.grid.FilesGrid
     :members:
+
+SynspecGrid
+-----------
+.. autoclass:: spexxy.grid.SynspecGrid
+    :members:

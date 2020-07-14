@@ -14,7 +14,7 @@ class WeightRanges(Weight):
     This class, when called, creates a weights array from the given wavelength ranges.
     """
 
-    def __init__(self, ranges: List[Tuple[float, float, float]], initial: float = 1., *args, **kwargs):
+    def __init__(self, ranges: List[Tuple[float, float, float]] = None, initial: float = 1., *args, **kwargs):
         """Initializes a new weight.
 
         Args:
@@ -22,7 +22,7 @@ class WeightRanges(Weight):
             initial: Initial value for whole array.
         """
         Weight.__init__(self, *args, **kwargs)
-        self._ranges = ranges
+        self._ranges = ranges if ranges is not None else []
         self._initial = initial
 
     def __call__(self, spectrum: Spectrum, filename: str) -> np.ndarray:

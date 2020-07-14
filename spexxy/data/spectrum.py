@@ -77,47 +77,49 @@ class Spectrum(object):
             self._wave_mode = spec.wave_mode
             self._valid = spec.valid
 
+        # wavelength array given?
+        if wave is not None:
+            # init from wavelength
+            self._wave_start = wave[0]
+            self._wave_step = 0.
+            self._wavelength = wave
+            self._wave_mode = wave_mode
+            wave_count = len(wave)
+
         else:
-            # wavelength array given?
-            if wave is not None:
-                # init from wavelength
-                self._wave_start = wave[0]
-                self._wave_step = 0.
-                self._wavelength = wave
-                self._wave_mode = wave_mode
-                wave_count = len(wave)
+            # calculate wave_count
+            if wave_count is None and wave_end is not None:
+                wave_count = int((wave_end - wave_start) / wave_step)
+
+        # init
+        if wave_start is not None and wave_step is not None and wave_mode is not None:
+            self._wave_start = wave_start
+            self._wave_step = wave_step
+            self._wavelength = None
+            self._wave_mode = wave_mode
+
+        # initialize flux and valid only if we got a valid wavelength array
+        if wave_step is not None:
+            # if no flux is given, initialize it empty
+            if flux is None:
+                # create flux array and fill with NaNs
+                flux = np.empty((wave_count), dtype=Spectrum.dtype)
+                flux[:] = np.nan
+
+                # if also no valid array is given, it's all invalid now
+                if valid is None:
+                    # fill valid with zeros
+                    valid = np.zeros(flux.shape, dtype=np.bool)
 
             else:
-                # calculate wave_count
-                if wave_count is None and wave_end is not None:
-                    wave_count = int((wave_end - wave_start) / wave_step)
+                # if we got some flux, but no valid array, we assume all valid
+                valid = np.ones(flux.shape, dtype=np.bool)
 
-                # init
-                self._wave_start = wave_start
-                self._wave_step = wave_step
-                self._wavelength = None
-                self._wave_mode = wave_mode
-
-            # initialize flux and valid only if we got a valid wavelength array
-            if self._wave_step is not None:
-                # if no flux is given, initialize it empty
-                if flux is None:
-                    # create flux array and fill with NaNs
-                    flux = np.empty((wave_count), dtype=Spectrum.dtype)
-                    flux[:] = np.nan
-
-                    # if also no valid array is given, it's all invalid now
-                    if valid is None:
-                        # fill valid with zeros
-                        valid = np.zeros(flux.shape, dtype=np.bool)
-
-                else:
-                    # if we got some flux, but no valid array, we assume all valid
-                    valid = np.ones(flux.shape, dtype=np.bool)
-
-                # finally set flux and valid
-                self.flux = flux
-                self._valid = valid
+        # finally set flux and valid
+        if flux is not None:
+            self.flux = flux
+        if valid is not None:
+            self._valid = valid
 
     @property
     def wave(self) -> np.ndarray:
@@ -568,10 +570,10 @@ class Spectrum(object):
             Extracted spectrum
         """
         if self._wave_step != 0.:
-            return self.__class__(flux=np.copy(self.flux[i1:i2]), wave_start=self.wave[i1],
+            return self.__class__(spec=self, flux=np.copy(self.flux[i1:i2]), wave_start=self.wave[i1],
                                   wave_step=self._wave_step, wave_mode=self._wave_mode)
         else:
-            return self.__class__(flux=np.copy(self.flux[i1:i2]), wave=np.copy(self.wave[i1:i2]),
+            return self.__class__(spec=self, flux=np.copy(self.flux[i1:i2]), wave=np.copy(self.wave[i1:i2]),
                                   wave_mode=self._wave_mode)
 
     def extract(self, w1: float, w2: float) -> 'Spectrum':
@@ -954,68 +956,77 @@ class SpectrumFitsHDU(Spectrum):
         """
         Spectrum.__init__(self, *args, **kwargs)
 
-        # store
-        self._hdu = hdu
-        self._primary = primary
-        self._dtype = dtype
+        # got a spec?
+        if 'spec' in kwargs and isinstance(kwargs['spec'], SpectrumFitsHDU):
+            # init from given spec
+            spec = kwargs['spec']
+            self._primary = primary
+            self._hdu = spec._hdu.copy() if hdu is None else hdu
+            self._dtype = spec._dtype if dtype is None else dtype
 
-        # init HDU
-        if hdu:
-            # overwrite primary, according to HDU
-            self._primary = isinstance(hdu, fits.PrimaryHDU)
+        else:
+            # store
+            self._hdu = hdu
+            self._primary = primary
+            self._dtype = dtype
 
-            # get data from HDU
-            self.flux = hdu.data.astype(Spectrum.dtype)
+            # init HDU
+            if hdu:
+                # overwrite primary, according to HDU
+                self._primary = isinstance(hdu, fits.PrimaryHDU)
 
-            # get header
-            hdr = hdu.header
+                # get data from HDU
+                self.flux = hdu.data.astype(Spectrum.dtype)
 
-            # do we have an extra HDU for wavelength array?
-            if 'WAVE' in hdr:
-                # yes, check hdu_list
-                if hdu_list is None:
-                    raise ValueError('No HDU list given for loading '
-                                     'wavelength array.')
+                # get header
+                hdr = hdu.header
 
-                # get HDU and data
-                wave_hdu = hdu_list[hdr['WAVE']]
-                self._wavelength = wave_hdu.data
-                self._wave_start = self._wavelength[0]
-                self._wave_step = 0
+                # do we have an extra HDU for wavelength array?
+                if 'WAVE' in hdr:
+                    # yes, check hdu_list
+                    if hdu_list is None:
+                        raise ValueError('No HDU list given for loading '
+                                         'wavelength array.')
 
-                # type
-                if "CTYPE1" in wave_hdu.header.keys() and \
-                        (wave_hdu.header["CTYPE1"] == "WAVE-LOG" or
-                         wave_hdu.header["CTYPE1"] == "AWAV-LOG"):
-                    self._wave_mode = Spectrum.Mode.LOGLAMBDA
+                    # get HDU and data
+                    wave_hdu = hdu_list[hdr['WAVE']]
+                    self._wavelength = wave_hdu.data
+                    self._wave_start = self._wavelength[0]
+                    self._wave_step = 0
+
+                    # type
+                    if "CTYPE1" in wave_hdu.header.keys() and \
+                            (wave_hdu.header["CTYPE1"] == "WAVE-LOG" or
+                             wave_hdu.header["CTYPE1"] == "AWAV-LOG"):
+                        self._wave_mode = Spectrum.Mode.LOGLAMBDA
+                    else:
+                        self._wave_mode = Spectrum.Mode.LAMBDA
+
+                    # convert to Angstrom, if necessary
+                    units = wave_hdu.header['CUNIT1'] if 'CUNIT1' in wave_hdu.header else 'Angstrom'
+                    self._wavelength_to_angstrom(units)
+
                 else:
-                    self._wave_mode = Spectrum.Mode.LAMBDA
+                    # no, get wavelength array info
+                    self._wave_start = hdr["START1"] if "START1" in hdr else hdr[
+                        "CRVAL1"]
+                    self._wave_step = hdr["STEP1"] if "STEP1" in hdr else hdr["CDELT1"]
+                    if 'CRPIX1' in hdr and hdr['CRPIX1'] > 1:
+                        self._wave_start -= (hdr['CRPIX1'] - 1) * self._wave_step
+                    self._wavelength = None
+                    if "CTYPE1" in hdr.keys() and \
+                            (hdr["CTYPE1"] == "WAVE-LOG" or
+                             hdr["CTYPE1"] == "AWAV-LOG"):
+                        self._wave_mode = Spectrum.Mode.LOGLAMBDA
+                    else:
+                        self._wave_mode = Spectrum.Mode.LAMBDA
 
-                # convert to Angstrom, if necessary
-                units = wave_hdu.header['CUNIT1'] if 'CUNIT1' in wave_hdu.header else 'Angstrom'
-                self._wavelength_to_angstrom(units)
+                    # convert to Angstrom, if necessary
+                    units = hdr['CUNIT1'] if 'CUNIT1' in hdr else 'Angstrom'
+                    self._wavelength_to_angstrom(units)
 
-            else:
-                # no, get wavelength array info
-                self._wave_start = hdr["START1"] if "START1" in hdr else hdr[
-                    "CRVAL1"]
-                self._wave_step = hdr["STEP1"] if "STEP1" in hdr else hdr["CDELT1"]
-                if 'CRPIX1' in hdr and hdr['CRPIX1'] > 1:
-                    self._wave_start -= (hdr['CRPIX1'] - 1) * self._wave_step
-                self._wavelength = None
-                if "CTYPE1" in hdr.keys() and \
-                        (hdr["CTYPE1"] == "WAVE-LOG" or
-                         hdr["CTYPE1"] == "AWAV-LOG"):
-                    self._wave_mode = Spectrum.Mode.LOGLAMBDA
-                else:
-                    self._wave_mode = Spectrum.Mode.LAMBDA
-
-                # convert to Angstrom, if necessary
-                units = hdr['CUNIT1'] if 'CUNIT1' in hdr else 'Angstrom'
-                self._wavelength_to_angstrom(units)
-
-            # is it valid?
-            self._valid = np.zeros(self.flux.shape, dtype=np.bool)
+                # is it valid?
+                self._valid = np.zeros(self.flux.shape, dtype=np.bool)
 
     def _wavelength_to_angstrom(self, units: str):
         """Convert wavelength units to Angstrom
@@ -1044,7 +1055,8 @@ class SpectrumFitsHDU(Spectrum):
     @property
     def header(self):
         """FITS header object"""
-        return self._hdu.header
+        hdu, _ = self.hdu()
+        return hdu.header
 
     @property
     def primary(self):
