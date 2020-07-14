@@ -5,7 +5,7 @@ import os
 import pandas as pd
 
 from .main import MainRoutine, FilesRoutine
-from .object import spexxyObject, create_object
+from .object import create_object
 from .utils.log import setup_log, shutdown_log
 
 
