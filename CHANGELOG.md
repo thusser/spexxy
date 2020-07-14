@@ -1,6 +1,6 @@
 ## Changelog
 
-### v2.5
+### v2.5 (2020-07-14)
 * Split MainRoutine into MainRoutine and FilesRoutine, allowing for routines that don't run on files.
 * Added a SynspecGrid which can synthesize spectra using Synspec
 * Added some command line tools
