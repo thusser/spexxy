@@ -99,7 +99,7 @@ Note that for better readability, the config file can also be written in the fol
 
   components:
     star:
-      class: spexxy.component.Grid
+      class: spexxy.component.GridComponent
       interpolator: phx
       init:
       - class: spexxy.init.InitFromValues
