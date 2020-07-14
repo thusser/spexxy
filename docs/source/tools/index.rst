@@ -7,3 +7,4 @@ spexxy tools
    grid
    isochrone
    lsf
+   spectrum
