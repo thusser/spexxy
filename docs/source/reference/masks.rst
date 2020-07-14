@@ -26,6 +26,11 @@ MaskFromPath
 .. autoclass:: spexxy.mask.MaskFromPath
     :members:
 
+MaskNegative
+------------
+.. autoclass:: spexxy.mask.MaskNegative
+    :members:
+
 MaskRanges
 ----------
 .. autoclass:: spexxy.mask.MaskRanges

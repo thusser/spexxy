@@ -11,3 +11,8 @@ ParamsFit
 ---------
 .. autoclass:: spexxy.main.ParamsFit
     :members:
+
+MultiMain
+---------
+.. autoclass:: spexxy.main.MultiMain
+    :members:
