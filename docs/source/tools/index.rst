@@ -8,3 +8,4 @@ spexxy tools
    isochrone
    lsf
    spectrum
+   tellurics
