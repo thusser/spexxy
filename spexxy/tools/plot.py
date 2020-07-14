@@ -3,6 +3,10 @@ from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib import gridspec
 import numpy as np
 
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from spexxy.data import Spectrum
+
 from spexxy.data import FitsSpectrum
 
 
