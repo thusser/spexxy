@@ -167,23 +167,25 @@ FORT5_FOOTER = """*
 *
 """
 
-
-FORT55 = """10   52   0        ! imode idstd iprin
-0    0   0   1     ! inmod intrpl ichang ichemc
-0    0   0   0   0 ! iophli nunalp nunbet nungam nunbal
-1    0   0   0   0 ! ifreq inlte icontl inlist ifhe2
-1    0   0         ! ihydpr ihe1pr ihe2pr
-%4d  %4d 40  0  1.e-5 0.03 ! alam0 alast cutof0 cutofs relop space
-1  26              ! nmlist, (iunitm(i),i=1,nmlist) for molecular linelists
+FORT55 = """{imode:d}   {idsts:d}   {iprin:d}        ! imode idstd iprin
+{inmod:d}    {intrpl:d}   {ichang:d}   {ichemc:d}     ! inmod intrpl ichang ichemc
+{iophli:d}    {nunalp:d}   {nunbet:d}   {nungam:d}   {nunbal:d} ! iophli nunalp nunbet nungam nunbal
+{ifreq:d}    {inlte:d}   {icontl:d}   {inlist:d}   {ifhe2:d} ! ifreq inlte icontl inlist ifhe2
+{ihydpr:d}    {ihe1pr:d}   {ihe2pr}         ! ihydpr ihe1pr ihe2pr
+{alam0:d}  {alast:d} {cutof0:d}  {cutofs:d}  {relop:g} {space:f} ! alam0 alast cutof0 cutofs relop space
+1  20              ! nmlist, (iunitm(i),i=1,nmlist) for molecular linelists
 """
-
 
 class SynspecGrid(Grid):
     """Synthesizes a new spectrum with Synspec at given grid positions."""
 
     def __init__(self, synspec: str, models: Grid, linelist: str, mollist: str, datadir: str,
                  range: Tuple[float, float], vturb: Union[str, float] = 2.0, elements: List[str] = None,
-                 *args, **kwargs):
+                 input: str = None, imode: int = 10, idstd: int = 52, iprin: int = 0, inmod: int = 0, intrpl: int = 0,
+                 ichang: int = 0, ichemc: int = 1, iophli: int = 0, nunalp: int = 0, nunbet: int = 0, nungam: int = 0,
+                 nunbal: int = 0, ifreq: int = 1, inlte: int = 0, icontl: int = 0, inlist: int = 0, ifhe2: int = 0,
+                 ihydpr: int = 1, ihe1pr: int = 0, ihe2pr: int = 0, cutof0: int = 40, cutofs: int = 0,
+                 relop: float = 1e-5, space: float = 0.03, *args, **kwargs):
         """Constructs a new Grid.
 
         Args:
@@ -195,6 +197,32 @@ class SynspecGrid(Grid):
             range: Tuple of start/end wavelenghts
             vturb: Either the microturbulence or a CSV file containing a table
             elements: List of elements to add as new axis
+            input: Use this fort.5 file instead of the automatically generated one
+            parameters: Use this fort.55 file instead of the automatically generated one
+            imode:
+            idstd:
+            iprin:
+            inmod:
+            intrpl:
+            ichang:
+            ichemc:
+            iophli:
+            nunalp:
+            nunbet:
+            nungam:
+            nunbal:
+            ifreq:
+            inlte:
+            icontl:
+            inlist:
+            ifhe2:
+            ihydpr:
+            ihe1pr:
+            ihe2pr:
+            cutof0:
+            cutofs:
+            relop:
+            space:
         """
         from ..interpolator import Interpolator
         Grid.__init__(self, axes=None, *args, **kwargs)
@@ -206,6 +234,12 @@ class SynspecGrid(Grid):
         self._datadir = datadir
         self._elements = [] if elements is None else elements
         self._range = range
+        self._input = input
+        self._parameters = dict(imode=imode, idsts=idstd, iprin=iprin, inmod=inmod, intrpl=intrpl, ichang=ichang,
+                                ichemc=ichemc, iophli=iophli, nunalp=nunalp, nunbet=nunbet, nungam=nungam,
+                                nunbal=nunbal, ifreq=ifreq, inlte=inlte, icontl=icontl, inlist=inlist, ifhe2=ifhe2,
+                                ihydpr=ihydpr, ihe1pr=ihe1pr, ihe2pr=ihe2pr, alam0=range[0], alast=range[1],
+                                cutof0=cutof0, cutofs=cutofs, relop=relop, space=space)
 
         # load grid
         self._models: Grid = self.get_objects(models, [Grid, Interpolator], 'grids', self.log, single=True)
@@ -308,7 +342,7 @@ class SynspecGrid(Grid):
             self._write_nstf(teff, logg, feh, alpha)
 
             # write config
-            self._write_fort55(*self._range)
+            self._write_fort55()
 
             # write element changes
             self._write_fort56(changes)
@@ -317,7 +351,7 @@ class SynspecGrid(Grid):
             os.symlink(os.path.expandvars(self._synspec), 'synspec')
             os.symlink(mod, 'fort.8')
             os.symlink(os.path.expandvars(self._linelist), 'fort.19')
-            os.symlink(os.path.expandvars(self._mollist), 'fort.26')
+            os.symlink(os.path.expandvars(self._mollist), 'fort.20')
             os.symlink(os.path.expandvars(self._datadir), 'data')
 
             # run synspec
@@ -336,31 +370,37 @@ class SynspecGrid(Grid):
             shutil.rmtree(tmp)
 
     def _write_fort5(self, teff, logg, feh, alpha):
-        with open('fort.5', 'w') as f:
-            # write header
-            f.write(FORT5_HEADER % (teff, logg))
+        if self._input is not None:
+            # copy file
+            shutil.copyfile(self._input, 'fort.5')
 
-            # write abundances
-            for no, el, abund, mode in ABUND_AGSS:
-                # calculate abundance
-                if no == 0:
-                    # H
-                    a = 0
-                elif no == 1:
-                    # He
-                    a = 10.**(abund - 12) if mode > 0 else 0.
-                elif no in [8, 10, 12, 14, 16, 18, 20, 22]:
-                    # alpha elements
-                    a = 10. ** (abund - 12 + feh + alpha) if mode > 0 else 0.
-                else:
-                    # other
-                    a = 10. ** (abund - 12 + feh) if mode > 0 else 0.
+        else:
+            # write automatically generated file
+            with open('fort.5', 'w') as f:
+                # write header
+                f.write(FORT5_HEADER % (teff, logg))
 
-                # write it
-                f.write('%d %.3g 0 !%s\n' % (mode, a, el))
+                # write abundances
+                for no, el, abund, mode in ABUND_AGSS:
+                    # calculate abundance
+                    if no == 0:
+                        # H
+                        a = 0
+                    elif no == 1:
+                        # He
+                        a = 10.**(abund - 12) if mode > 0 else 0.
+                    elif no in [8, 10, 12, 14, 16, 18, 20, 22]:
+                        # alpha elements
+                        a = 10. ** (abund - 12 + feh + alpha) if mode > 0 else 0.
+                    else:
+                        # other
+                        a = 10. ** (abund - 12 + feh) if mode > 0 else 0.
 
-            # write footer
-            f.write(FORT5_FOOTER)
+                    # write it
+                    f.write('%d %.3g 0 !%s\n' % (mode, a, el))
+
+                # write footer
+                f.write(FORT5_FOOTER)
 
     def _write_nstf(self, teff, logg, feh, alpha_m):
         """Write file with non-standard flags."""
@@ -377,9 +417,13 @@ class SynspecGrid(Grid):
         with open('nstf', 'w') as f:
             f.write('ND=64,VTB=%.2f, IFMOL=1' % vturb)
 
-    def _write_fort55(self, wstart, wend):
+    def _write_fort55(self):
+        """Writes the fort.55 file."""
+
+        # open file
         with open('fort.55', 'w') as f:
-            f.write(FORT55 % (wstart, wend))
+            # write config
+            f.write(FORT55.format(**self._parameters))
 
     def _write_fort56(self, abunds: Dict[str, float]):
         """Write fort.56 file.
