@@ -185,7 +185,7 @@ class SynspecGrid(Grid):
                  ichang: int = 0, ichemc: int = 1, iophli: int = 0, nunalp: int = 0, nunbet: int = 0, nungam: int = 0,
                  nunbal: int = 0, ifreq: int = 1, inlte: int = 0, icontl: int = 0, inlist: int = 0, ifhe2: int = 0,
                  ihydpr: int = 1, ihe1pr: int = 0, ihe2pr: int = 0, cutof0: int = 40, cutofs: int = 0,
-                 relop: float = 1e-5, space: float = 0.03, *args, **kwargs):
+                 relop: float = 1e-5, space: float = 0.03, normalize: bool = False, *args, **kwargs):
         """Constructs a new Grid.
 
         Args:
@@ -223,6 +223,7 @@ class SynspecGrid(Grid):
             cutofs:
             relop:
             space:
+            normalize: Normalize spectra
         """
         from ..interpolator import Interpolator
         Grid.__init__(self, axes=None, *args, **kwargs)
@@ -240,6 +241,7 @@ class SynspecGrid(Grid):
                                 nunbal=nunbal, ifreq=ifreq, inlte=inlte, icontl=icontl, inlist=inlist, ifhe2=ifhe2,
                                 ihydpr=ihydpr, ihe1pr=ihe1pr, ihe2pr=ihe2pr, alam0=range[0], alast=range[1],
                                 cutof0=cutof0, cutofs=cutofs, relop=relop, space=space)
+        self._normalize = normalize
 
         # load grid
         self._models: Grid = self.get_objects(models, [Grid, Interpolator], 'grids', self.log, single=True)
@@ -359,9 +361,18 @@ class SynspecGrid(Grid):
 
             # read output
             d = pd.read_csv('fort.7', delim_whitespace=True, names=['wave', 'flux'])
-
-            # return spec
             spec = Spectrum(wave=d['wave'], flux=d['flux']).resample_const(step=0.02)
+
+            # normalize?
+            if self._normalize:
+                # read continuum and create
+                c = pd.read_csv('fort.17', delim_whitespace=True, names=['wave', 'flux'])
+                cont = Spectrum(wave=c['wave'], flux=c['flux']).resample(spec=spec)
+
+                # divide
+                spec.flux /= cont.flux
+
+            # return it
             return spec
 
         finally:
