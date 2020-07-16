@@ -8,6 +8,7 @@ import os
 from .grid import Grid, GridAxis
 from ..data import Spectrum
 
+
 ABUND_AGSS = [
     (1, 'H', 12., 2),
     (2, 'He', 10.93, 2),
@@ -167,6 +168,7 @@ FORT5_FOOTER = """*
 *
 """
 
+
 FORT55 = """{imode:d}   {idsts:d}   {iprin:d}        ! imode idstd iprin
 {inmod:d}    {intrpl:d}   {ichang:d}   {ichemc:d}     ! inmod intrpl ichang ichemc
 {iophli:d}    {nunalp:d}   {nunbet:d}   {nungam:d}   {nunbal:d} ! iophli nunalp nunbet nungam nunbal
@@ -175,6 +177,7 @@ FORT55 = """{imode:d}   {idsts:d}   {iprin:d}        ! imode idstd iprin
 {alam0:d}  {alast:d} {cutof0:d}  {cutofs:d}  {relop:g} {space:f} ! alam0 alast cutof0 cutofs relop space
 1  20              ! nmlist, (iunitm(i),i=1,nmlist) for molecular linelists
 """
+
 
 class SynspecGrid(Grid):
     """Synthesizes a new spectrum with Synspec at given grid positions."""
