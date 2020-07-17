@@ -14,7 +14,7 @@ def add_parser(subparsers):
     # add parser
     parser = subparsers.add_parser('plot', help='Plot one or more spectrum')
     parser.add_argument('spectra', type=str, help='Spectrum to plot', nargs='+')
-    parser.add_argument('-o', '--output', help='Save plot to PDF file', type=str)
+    parser.add_argument('-o', '--output', help='Save plot to file', type=str)
     parser.add_argument('-r', '--results', help='Include results', action='store_true')
     parser.add_argument('--range', type=float, nargs=2, help='Wavelength range to plot')
 
