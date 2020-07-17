@@ -16,12 +16,40 @@ def add_parser(subparsers):
     parser.add_argument('spectra', type=str, help='Spectrum to plot', nargs='+')
     parser.add_argument('-o', '--output', help='Save plot to file', type=str)
     parser.add_argument('-r', '--results', help='Include results', action='store_true')
+    parser.add_argument('-s', '--single', help='Plot all spectra into single plot', action='store_true')
     parser.add_argument('--range', type=float, nargs=2, help='Wavelength range to plot')
 
     # argparse wrapper for plot
     def run(args):
-        plot(**vars(args))
+        if args.single:
+            plot_single(**vars(args))
+        else:
+            plot(**vars(args))
     parser.set_defaults(func=run)
+
+
+def plot_single(spectra: list, **kwargs):
+    # create plot
+    fig, ax = plt.subplots(figsize=(11.69, 8.27))
+
+    # loop spectra
+    for filename in sorted(spectra):
+        # load spectrum
+        with FitsSpectrum(filename) as fs:
+            # get spectrum
+            spec = fs.spectrum
+
+            # plot it
+            ax.plot(spec.wave, spec.flux, ls="-", lw=1., marker="None", label=filename)
+
+    # wrap up
+    ax.set_xlabel(r"$\mathrm{Wavelength}\ \lambda\,[\mathrm{\AA}]$", fontsize=20)
+    ax.set_ylabel('Flux', fontsize=20)
+    ax.legend()
+    ax.minorticks_on()
+    ax.grid()
+    fig.tight_layout()
+    plt.show()
 
 
 def plot(spectra: list, output: str = None, results: bool = False, range: list = None, **kwargs):
@@ -73,7 +101,7 @@ def plot(spectra: list, output: str = None, results: bool = False, range: list =
 
 def plot_spectrum(spec, model: 'Spectrum' = None, residuals: np.ndarray = None, valid: np.ndarray = None,
                   wave_range: list = None, text: str = None, text_width: float = 0.3, title: str = None):
-    # specify grid
+    # create plot
     fig = plt.figure(figsize=(11.69, 8.27))
     gs = gridspec.GridSpec(2, 1, figure=fig, height_ratios=[3, 1])
     gs.update(wspace=0., hspace=0., left=0.09, right=0.99, top=0.95, bottom=0.08)
