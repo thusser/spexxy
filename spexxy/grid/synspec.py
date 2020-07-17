@@ -184,10 +184,10 @@ class SynspecGrid(Grid):
 
     def __init__(self, synspec: str, models: Grid, linelist: str, mollist: str, datadir: str,
                  range: Tuple[float, float], vturb: Union[str, float] = 2.0, elements: List[str] = None,
-                 input: str = None, imode: int = 10, idstd: int = 52, iprin: int = 0, inmod: int = 0, intrpl: int = 0,
-                 ichang: int = 0, ichemc: int = 1, iophli: int = 0, nunalp: int = 0, nunbet: int = 0, nungam: int = 0,
-                 nunbal: int = 0, ifreq: int = 1, inlte: int = 0, icontl: int = 0, inlist: int = 0, ifhe2: int = 0,
-                 ihydpr: int = 1, ihe1pr: int = 0, ihe2pr: int = 0, cutof0: int = 40, cutofs: int = 0,
+                 input: Union[str, Grid] = None, imode: int = 10, idstd: int = 52, iprin: int = 0, inmod: int = 0,
+                 intrpl: int = 0, ichang: int = 0, ichemc: int = 1, iophli: int = 0, nunalp: int = 0, nunbet: int = 0,
+                 nungam: int = 0, nunbal: int = 0, ifreq: int = 1, inlte: int = 0, icontl: int = 0, inlist: int = 0,
+                 ifhe2: int = 0, ihydpr: int = 1, ihe1pr: int = 0, ihe2pr: int = 0, cutof0: int = 40, cutofs: int = 0,
                  relop: float = 1e-5, space: float = 0.03, normalize: bool = False, *args, **kwargs):
         """Constructs a new Grid.
 
@@ -200,7 +200,7 @@ class SynspecGrid(Grid):
             range: Tuple of start/end wavelenghts
             vturb: Either the microturbulence or a CSV file containing a table
             elements: List of elements to add as new axis
-            input: Use this fort.5 file instead of the automatically generated one
+            input: Either the name of a fort.5 file or a Grid or None (in which case an automatic fort.5 will be used)
             parameters: Use this fort.55 file instead of the automatically generated one
             imode:
             idstd:
@@ -238,7 +238,6 @@ class SynspecGrid(Grid):
         self._datadir = datadir
         self._elements = [] if elements is None else elements
         self._range = range
-        self._input = input
         self._parameters = dict(imode=imode, idsts=idstd, iprin=iprin, inmod=inmod, intrpl=intrpl, ichang=ichang,
                                 ichemc=ichemc, iophli=iophli, nunalp=nunalp, nunbet=nunbet, nungam=nungam,
                                 nunbal=nunbal, ifreq=ifreq, inlte=inlte, icontl=icontl, inlist=inlist, ifhe2=ifhe2,
@@ -260,6 +259,18 @@ class SynspecGrid(Grid):
         elif isinstance(vturb, str):
             filename = os.path.expandvars(vturb)
             self._vturb = pd.read_csv(filename, index_col=['Teff', 'logg', '[M/H]', '[alpha/M]'], dtype=float)
+
+        # input/fort.5
+        self._input = None
+        if input is not None:
+            # first check, whether this is a file
+            if isinstance(input, str) and os.path.exists(input):
+                # okay, take this
+                self._input = input
+
+            else:
+                # try to create grid
+                self._input: Grid = self.get_objects(input, [Grid, Interpolator], 'grids', self.log, single=True)
 
     def all(self) -> List[Tuple]:
         """Return all possible parameter combinations.
@@ -385,8 +396,14 @@ class SynspecGrid(Grid):
 
     def _write_fort5(self, teff, logg, feh, alpha):
         if self._input is not None:
-            # copy file
-            shutil.copyfile(self._input, 'fort.5')
+            # single file or grid?
+            if isinstance(self._input, str):
+                # copy file
+                shutil.copyfile(self._input, 'fort.5')
+            else:
+                # get from grid and copy
+                filename = self._input.filename((teff, logg, feh, alpha))
+                shutil.copyfile(filename, 'fort.5')
 
         else:
             # write automatically generated file
