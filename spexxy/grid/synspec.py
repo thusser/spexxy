@@ -361,7 +361,7 @@ class SynspecGrid(Grid):
             self._write_fort55()
 
             # write element changes
-            self._write_fort56(changes)
+            self._write_fort56(changes, feh)
 
             # create symlinks
             os.symlink(os.path.expandvars(self._synspec), 'synspec')
@@ -414,18 +414,18 @@ class SynspecGrid(Grid):
                 # write abundances
                 for no, el, abund, mode in ABUND_AGSS:
                     # calculate abundance
-                    if no == 0:
+                    if mode == 0 or no == 0:
                         # H
                         a = 0
                     elif no == 1:
                         # He
-                        a = 10.**(abund - 12) if mode > 0 else 0.
+                        a = 10.**(abund - 12)
                     elif no in [8, 10, 12, 14, 16, 18, 20, 22]:
                         # alpha elements
-                        a = 10. ** (abund - 12 + feh + alpha) if mode > 0 else 0.
+                        a = 10. ** (abund - 12 + feh + alpha)
                     else:
                         # other
-                        a = 10. ** (abund - 12 + feh) if mode > 0 else 0.
+                        a = 10. ** (abund - 12 + feh)
 
                     # write it
                     f.write('%d %.3g 0 !%s\n' % (mode, a, el))
@@ -456,7 +456,7 @@ class SynspecGrid(Grid):
             # write config
             f.write(FORT55.format(**self._parameters))
 
-    def _write_fort56(self, abunds: Dict[str, float]):
+    def _write_fort56(self, abunds: Dict[str, float], feh: float):
         """Write fort.56 file.
 
         To create the fort.56 that contains the updated abundance (abund_up) for the element wanted
@@ -477,7 +477,9 @@ class SynspecGrid(Grid):
                 # find el in AGSS
                 for no, el, abund, _ in ABUND_AGSS:
                     if el == user_el:
-                        f.write('%d %.3g\n' % (no, 10. ** (abund - 12 + user_abund)))
+                        # calculate abundance and write it
+                        a = 10. ** (abund - 12 + user_abund + (feh if no > 1 else 0))
+                        f.write('%d %.3g\n' % (no, a))
                         break
                 else:
                     raise ValueError('Element %s not found.' % user_el)
