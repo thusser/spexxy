@@ -45,6 +45,11 @@ class Filter(object):
         self._throughput = Spectrum.load(self._filter_filename)
 
     @property
+    def filename(self):
+        """Filename for filter"""
+        return self._filter_filename
+
+    @property
     def wave(self):
         """Wavelength array the filter is defined on"""
         return self._throughput.wave
