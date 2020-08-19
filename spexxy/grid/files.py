@@ -61,16 +61,21 @@ class FilesGrid(Grid):
         """
         return tuple(params) in self._data.index
 
-    def filename(self, params: Tuple) -> str:
+    def filename(self, params: Tuple, absolute: bool = True) -> str:
         """Returns filename for given parameter set.
 
         Args:
             params: Parameter set to catch value for.
+            absolute: If True, return full absolute path, otherwise relative path within grid.
 
         Returns:
             Filename.
         """
-        return os.path.join(self._root, self._data.loc[tuple(params)].Filename)
+
+        if absolute:
+            return os.path.join(self._root, self._data.loc[tuple(params)].Filename)
+        else:
+            return self._data.loc[tuple(params)].Filename
 
     def __call__(self, params: Tuple) -> Any:
         """Fetches the value for the given parameter set.
