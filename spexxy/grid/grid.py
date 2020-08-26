@@ -159,36 +159,41 @@ class Grid(spexxyObject):
             axis: Axis to search for
             distance: Distance in which to find neighbour.
                 >0:  Find larger neighbours, i.e. 0 next larger value, 1 the one after that, etc
-                <=0:  Find smaller neighbouars, i.e. 0 next smaller value (or value itself), -1 the before that, etc
+                <=0:  Find smaller neighbours, i.e. 0 next smaller value (or value itself), -1 the before that, etc
             must_exist: Grid point with new parameter set must actually exist.
 
         Returns:
             New parameter tuple with neighbour on the given axis.
         """
 
-        # find neighbour in axis
-        value = self._axes[axis].neighbour(params[axis], distance=distance)
-        if value is None:
-            return None
-
         # create new tuple
         p = list(params)
-        p[axis] = value
 
-        # if we don't enforce it to exist, or if it does exist, we finish here
-        if not must_exist or self.__contains__(tuple(p)):
+        # if we don't enfore the new point to exist, it's easy
+        if not must_exist:
+            # find neighbour in axis
+            value = self._axes[axis].neighbour(params[axis], distance=distance)
+            if value is None:
+                return None
+
+            # create new tuple
+            p[axis] = value
             return tuple(p)
 
         # grid point does not exist, get all axis values
         axis_values = np.array(self._axes[axis].values)
 
         # lower or higher values?
-        if distance == 0:
-            # larger values
-            axis_values = sorted(axis_values[axis_values > params[axis]], reverse=False)
-        else:
+        if distance <= 0:
             # smaller values
             axis_values = sorted(axis_values[axis_values < params[axis]], reverse=True)
+            # define steps to take
+            steps = abs(distance)
+        else:
+            # larger values
+            axis_values = sorted(axis_values[axis_values > params[axis]], reverse=False)
+            # define steps to take, subtract 1, so that 1 (first larger) is index 0
+            steps = distance - 1
 
         # find parameter set that exists
         for v in axis_values:
@@ -197,9 +202,13 @@ class Grid(spexxyObject):
 
             # check it
             if self.__contains__(tuple(p)):
-                # exists, return it
-                return tuple(p)
-
+                # exists, does distance match, i.e. steps=0?
+                if steps == 0:
+                    # return tuple
+                    return tuple(p)
+                else:
+                    # otherwise, reduce steps and go on
+                    steps -= 1
         else:
             # nothing found
             return None
