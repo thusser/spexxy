@@ -106,6 +106,17 @@ class Grid(spexxyObject):
         """
         return self._axes[axis].values
 
+    def axis_name(self, axis: int) -> str:
+        """Returns name of given axis.
+
+        Args:
+            axis: Index of axis to return values for.
+
+        Returns:
+            Name of given axis.
+        """
+        return self._axes[axis].name
+
     def all(self) -> List[Tuple]:
         """Return all possible parameter combinations.
 
