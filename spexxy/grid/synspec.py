@@ -447,7 +447,12 @@ class SynspecGrid(Grid):
         # write file
         with open('nstf', 'w') as f:
             # TODO: these need to be parameters
-            f.write('ND=64,VTB=%.2f,IFMOL=1,TMOLIM=8000.,IPPICK=0,IBFAC=1' % vturb)
+            f.write('ND=64\n')
+            f.write('VTB=%.2f\n' % vturb)
+            f.write('IFMOL=1\n')
+            f.write('TMOLIM=8000.\n')
+            f.write('IPPICK=0\n')
+            f.write('IBFAC=1\n')
 
     def _write_fort55(self):
         """Writes the fort.55 file."""
