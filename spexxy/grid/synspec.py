@@ -107,7 +107,7 @@ ABUND_AGSS = [
 
 FORT5_HEADER = """%.2f %.2f
  T  F              ! LTE,  LTGRAY
- 'nstf'            ! name of file containing non-standard flags
+ '%s'            ! name of file containing non-standard flags
 *
 * frequencies
 *
@@ -188,7 +188,8 @@ class SynspecGrid(Grid):
                  intrpl: int = 0, ichang: int = 0, ichemc: int = 1, iophli: int = 0, nunalp: int = 0, nunbet: int = 0,
                  nungam: int = 0, nunbal: int = 0, ifreq: int = 1, inlte: int = 0, icontl: int = 0, inlist: int = 0,
                  ifhe2: int = 0, ihydpr: int = 1, ihe1pr: int = 0, ihe2pr: int = 0, cutof0: int = 40, cutofs: int = 0,
-                 relop: float = 1e-5, space: float = 0.03, normalize: bool = False, *args, **kwargs):
+                 relop: float = 1e-5, space: float = 0.03, normalize: bool = False, nstfile: str = 'nstf',
+                 *args, **kwargs):
         """Constructs a new Grid.
 
         Args:
@@ -227,6 +228,7 @@ class SynspecGrid(Grid):
             relop:
             space:
             normalize: Normalize spectra
+            nstfile: Name of file with non-standard flags
         """
         from ..interpolator import Interpolator
         Grid.__init__(self, axes=None, *args, **kwargs)
@@ -244,6 +246,7 @@ class SynspecGrid(Grid):
                                 ihydpr=ihydpr, ihe1pr=ihe1pr, ihe2pr=ihe2pr, alam0=range[0], alast=range[1],
                                 cutof0=cutof0, cutofs=cutofs, relop=relop, space=space)
         self._normalize = normalize
+        self._nstfile = nstfile
 
         # load grid
         self._models: Grid = self.get_objects(models, [Grid, Interpolator], 'grids', self.log, single=True)
@@ -409,7 +412,7 @@ class SynspecGrid(Grid):
             # write automatically generated file
             with open('fort.5', 'w') as f:
                 # write header
-                f.write(FORT5_HEADER % (teff, logg))
+                f.write(FORT5_HEADER % (teff, logg, self._nstfile))
 
                 # write abundances
                 for no, el, abund, mode in ABUND_AGSS:
@@ -445,7 +448,7 @@ class SynspecGrid(Grid):
             return
 
         # write file
-        with open('nstf', 'w') as f:
+        with open(self._nstfile, 'w') as f:
             # TODO: these need to be parameters
             f.write('ND=64\n')
             f.write('VTB=%.2f\n' % vturb)
