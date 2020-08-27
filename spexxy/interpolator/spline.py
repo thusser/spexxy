@@ -131,8 +131,9 @@ class SplineInterpolator(Interpolator):
                     # try to fetch additional data
                     try:
                         p = self._grid.neighbour(tuple(params), axis, i, must_exist=axis == 0)
-                        y.append(self._interpolate(p))
-                        x.append(p[axis])
+                        if p is not None:
+                            y.append(self._interpolate(p))
+                            x.append(p[axis])
                     except KeyError:
                         pass
 
