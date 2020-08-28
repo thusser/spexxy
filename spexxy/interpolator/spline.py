@@ -9,7 +9,7 @@ from ..data import Spectrum
 class SplineInterpolator(Interpolator):
     """A cubic spline interpolator that operates on a given grid."""
 
-    def __init__(self, grid: Grid, derivs: Grid = None, n=1, *args, **kwargs):
+    def __init__(self, grid: Grid, derivs: Grid = None, n: int = 1, verbose: bool = False, *args, **kwargs):
         """Initializes a new linear interpolator.
 
         Args:
@@ -17,17 +17,19 @@ class SplineInterpolator(Interpolator):
             derivs: If given, contains a second grid at the same parameters as grid, but containg 2nd derivatives for
                 the first axis of the grid.
             n: Number of points on each side to use for calculating derivatives.
+            verbose: If True, output some more logs
         """
         Interpolator.__init__(self, *args, **kwargs)
 
         # grids
         self.log.info('Initializing spline interpolator...')
-        self._grid = self.get_objects(grid, Grid, 'grids', single=True)
-        self._derivs = self.get_objects(derivs, Grid, 'grids', single=True)
+        self._grid: Grid = self.get_objects(grid, Grid, 'grids', single=True)
+        self._derivs: Grid = self.get_objects(derivs, Grid, 'grids', single=True)
 
         # init
         self._axes = self._grid.axes()
         self._npoints = n
+        self._verbose = verbose
 
     @property
     def grid(self) -> Grid:
@@ -138,19 +140,31 @@ class SplineInterpolator(Interpolator):
                         pass
 
             # calculate 2nd derivatives
+            if self._verbose:
+                self.log.info('Creating 2nd derivates for axis %s with values %s.', self._grid.axis_name(axis), x)
             y2 = self._spline(x, y)
 
             # set them
             lower_deriv = y2[ilower]
             higher_deriv = y2[ilower + 1]
 
-        # calculate interpolation
+        # log
+        if self._verbose:
+            self.log.info('Interpolate for axis %s at %.2f from neighbours at %.2f and %.2f.',
+                          self._grid.axis_name(axis), params[axis], x_lower, x_higher)
+            self.log.info('2nd derivation at 1st point is %.2g for next lower and %.2g for next higher neighbour.',
+                          lower_deriv[0], higher_deriv[1])
+
+        # calculate coefficients
         A = (x_higher - params[axis]) / (x_higher - x_lower)
         B = 1. - A
-        C = 1. / 6. * (A * A * A - A) * (x_higher - x_lower) * (x_higher - x_lower)
-        D = 1. / 6. * (B * B * B - B) * (x_higher - x_lower) * (x_higher - x_lower)
-        ip = lower_data * A + higher_data * B + lower_deriv * C + higher_deriv * D
-        return ip
+        C = (A**3 - A) * (x_higher - x_lower)**2 / 6.
+        D = (B**3 - B) * (x_higher - x_lower)**2 / 6.
+        if self._verbose:
+            self.log.info('A=%.2f, B=%.2f, C=%.2f, D=%.2f', A, B, C, D)
+
+        # interpolate
+        return lower_data * A + higher_data * B + lower_deriv * C + higher_deriv * D
 
     def _spline(self, x: np.ndarray, y: np.ndarray, yp1=np.inf, ypn=np.inf) -> np.ndarray:
         """Calculates the 2nd derivatives for a spline.
