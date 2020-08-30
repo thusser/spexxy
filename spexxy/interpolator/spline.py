@@ -69,7 +69,6 @@ class SplineInterpolator(Interpolator):
         Returns:
             Interpolated spectrum at given position.
         """
-        print(axis, params)
 
         # no axis given, start at latest
         if axis is None:
