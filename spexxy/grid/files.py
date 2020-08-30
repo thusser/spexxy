@@ -9,12 +9,16 @@ from ..data import Spectrum
 class FilesGrid(Grid):
     """Grid working on files with a CSV based database."""
 
-    def __init__(self, filename: str, *args, **kwargs):
+    def __init__(self, filename: str, norm_to_mean: bool = False, *args, **kwargs):
         """Constructs a new Grid.
 
         Args:
             filename: Filename of CSV file.
+            norm_to_mean: Normalize spectra to their mean.
         """
+
+        # store
+        self._norm_to_mean = norm_to_mean
 
         # expand filename
         filename = os.path.expandvars(filename)
@@ -96,8 +100,15 @@ class FilesGrid(Grid):
         else:
             filename = tmp.Filename
 
-        # return Spectrum
-        return Spectrum.load(os.path.join(self._root, filename))
+        # load Spectrum
+        spec = Spectrum.load(os.path.join(self._root, filename))
+
+        # normalize?
+        if self._norm_to_mean:
+            spec.norm_to_mean()
+
+        # return it
+        return spec
 
 
 __all__ = ['FilesGrid']
