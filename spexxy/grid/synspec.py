@@ -450,7 +450,7 @@ class SynspecGrid(Grid):
         # write file
         with open(self._nstfile, 'w') as f:
             # TODO: these need to be parameters
-            f.write('ND=64\n')
+            #f.write('ND=64\n')
             f.write('VTB=%.2f\n' % vturb)
             f.write('IFMOL=1\n')
             f.write('TMOLIM=8000.\n')
