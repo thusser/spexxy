@@ -83,10 +83,13 @@ class SplineInterpolator(Interpolator):
 
         # if params[axis] is on axis; return it directly
         if params[axis] in axisValues:
-            if axis == 0:
+            if axis == 0 and tuple(params) in self._grid:
+                # if this is the first axis AND params are in grid, return it
                 return self._grid(tuple(params))
-            else:
+            elif axis > 0:
+                # if it's another axis, interpolate
                 return self._interpolate(tuple(params), axis - 1)
+            # if it's neither, just continue
 
         # find the next lower and the next higher axis value
         # on the last axis we enforce that the neighbour must exist
