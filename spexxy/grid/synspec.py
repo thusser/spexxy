@@ -184,7 +184,7 @@ class SynspecGrid(Grid):
 
     def __init__(self, synspec: str, models: Grid, linelist: str, mollist: str, datadir: str,
                  range: Tuple[float, float], vturb: Union[str, float] = 2.0, elements: List[str] = None,
-                 input: Union[str, Grid] = None, imode: int = 10, idstd: int = 52, iprin: int = 0, inmod: int = 0,
+                 input: Union[str, Grid] = None, imode: int = 10, idstd: int = 0, iprin: int = 0, inmod: int = 0,
                  intrpl: int = 0, ichang: int = 0, ichemc: int = 1, iophli: int = 0, nunalp: int = 0, nunbet: int = 0,
                  nungam: int = 0, nunbal: int = 0, ifreq: int = 1, inlte: int = 0, icontl: int = 0, inlist: int = 0,
                  ifhe2: int = 0, ihydpr: int = 1, ihe1pr: int = 0, ihe2pr: int = 0, cutof0: int = 40, cutofs: int = 0,
