@@ -427,7 +427,7 @@ class Spectrum(object):
 
         # nothing to do?
         if step == 0 and self._wave_step > 0:
-            return
+            return self.copy(copy_flux=True)
 
         # filter wavelength array for NaNs
         w = np.sort(self.wave)
