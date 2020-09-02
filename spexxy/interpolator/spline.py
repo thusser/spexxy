@@ -165,10 +165,11 @@ class SplineInterpolator(Interpolator):
                           lower_deriv[0], higher_deriv[1])
 
         # calculate coefficients
-        A = (x_higher - params[axis]) / (x_higher - x_lower)
-        B = 1. - A
-        C = (A**3 - A) * (x_higher - x_lower)**2 / 6.
-        D = (B**3 - B) * (x_higher - x_lower)**2 / 6.
+        h = (x_higher - x_lower)
+        A = (x_higher - params[axis]) / h
+        B = (params[axis] - x_lower) / h
+        C = (A**3 - A) * h**2 / 6.
+        D = (B**3 - B) * h**2 / 6.
         if self._verbose:
             self.log.info('A=%.2f, B=%.2f, C=%.2f, D=%.2f', A, B, C, D)
 
