@@ -1,17 +1,17 @@
-from spexxy.grid import Grid
 from .spectrumcomponent import SpectrumComponent
+from ..interpolator import Interpolator
 
 
-class GridComponent(SpectrumComponent):
-    """A Grid component takes a grid and adds LOSVD parameters."""
+class InterpolatorComponent(SpectrumComponent):
+    """An Interpolator component takes an interpolator and adds LOSVD parameters."""
 
-    def __init__(self, grid: Grid, name: str = "STAR", *args, **kwargs):
+    def __init__(self, interpolator: Interpolator, name: str = "STAR", *args, **kwargs):
         """Initializes a new Grid component.
 
         Parameters
         ----------
-        grid : Grid
-            The grid to use for the component
+        interpolator : Interpolator
+            The interpolator to use for the component
         name : str
             Name of the component
         """
@@ -19,12 +19,12 @@ class GridComponent(SpectrumComponent):
         self.log.info('Initializing grid component "%s"...', name)
 
         # get interpolator
-        self._grid = self.get_objects(grid, Grid, 'grids')
-        if isinstance(self._grid, list):
-            self._grid = self._grid[0]
+        self._interpolator = self.get_objects(interpolator, Interpolator, 'interpolators')
+        if isinstance(self._interpolator, list):
+            self._interpolator = self._interpolator[0]
 
-        # add parameters of grid
-        for a in self._grid.axes():
+        # add parameters of interpolator
+        for a in self._interpolator.axes():
             self.log.info('Found parameter %s with min=%.2f, max=%.2f, and initial=%.2f.',
                           a.name, a.min, a.max, a.initial)
             self.set(a.name, min=a.min, max=a.max, value=a.initial)
@@ -39,10 +39,10 @@ class GridComponent(SpectrumComponent):
         """
 
         # get values as tuple
-        values = tuple([self[a.name] for a in self._grid.axes()])
+        values = tuple([self[a.name] for a in self._interpolator.axes()])
 
         # interpolate
-        return self._grid(values)
+        return self._interpolator(values)
 
 
-__all__ = ['GridComponent']
+__all__ = ['InterpolatorComponent']
