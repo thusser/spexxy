@@ -29,6 +29,11 @@ class InterpolatorComponent(SpectrumComponent):
                           a.name, a.min, a.max, a.initial)
             self.set(a.name, min=a.min, max=a.max, value=a.initial)
 
+    @property
+    def interpolator(self):
+        """Returns interpolator."""
+        return self._interpolator
+
     def _model_func(self):
         """Get spectrum with given parameters.
 

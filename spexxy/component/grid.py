@@ -29,6 +29,11 @@ class GridComponent(SpectrumComponent):
                           a.name, a.min, a.max, a.initial)
             self.set(a.name, min=a.min, max=a.max, value=a.initial, values=a.values)
 
+    @property
+    def grid(self):
+        """Returns grid."""
+        return self._grid
+
     def _model_func(self):
         """Get spectrum with given parameters.
 
