@@ -65,8 +65,13 @@ class BruteFit(BaseParamsFit):
                 # log new best result
                 self._callback(p, iter, None)
 
+        # add "errors"
+        results = []
+        for p in best[1]:
+            results.extend([p, 0])
+
         # return results
-        return list(best[1]) + [True, best[0]]
+        return results + [True, best[0]]
 
 
 __all__ = ['BruteFit']
