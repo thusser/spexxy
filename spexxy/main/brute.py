@@ -1,21 +1,8 @@
-import lmfit
 import numpy as np
-import scipy.linalg
-from lmfit import Parameters
-from lmfit.minimizer import MinimizerResult
 from typing import List
-import matplotlib.pyplot as plt
-from matplotlib.backends.backend_pdf import PdfPages
-import pandas as pd
 
-from spexxy.data import FitsSpectrum, Spectrum
-from spexxy.component import Component, GridComponent
-from spexxy.mask import Mask
-from spexxy.weight import Weight
-from spexxy.data import SpectrumFitsHDU
-from .base import FilesRoutine
-from spexxy.tools.plot import plot_spectrum
-from .baseparamsfit import BaseParamsFit, Legendre
+from spexxy.component import GridComponent
+from .baseparamsfit import BaseParamsFit
 
 
 class BruteFit(BaseParamsFit):
@@ -60,24 +47,27 @@ class BruteFit(BaseParamsFit):
 
         # loop them
         best = None
-        for params in all_params:
+        for iter, params in enumerate(all_params, 1):
             # make parameters
             p = cmp.make_params(**dict(zip(param_names, params)))
 
             # get model
-            model = self._get_model(p)
+            self._model = self._get_model(p)
 
             # chi2
-            chi2 = np.sum((self._spec.flux[self._valid] - model.flux[self._valid])**2 / model.flux[self._valid])
-            print(params, chi2)
+            chi2 = np.sum((self._spec.flux[self._valid] - self._model.flux[self._valid])**2 / self._model.flux[self._valid])
 
+            # found a new best result?
             if best is None or chi2 < best[0]:
+                # set it
                 best = (chi2, params)
 
-        print('BEST: ', best)
-        # success?
-        #results += [success, result.redchi]
-        return []
+                # log new best result
+                self._callback(p, iter, None)
+                break
+
+        # return results
+        return list(best[1]) + [True, best[0]]
 
 
 __all__ = ['BruteFit']
