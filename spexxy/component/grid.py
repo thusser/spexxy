@@ -27,7 +27,7 @@ class GridComponent(SpectrumComponent):
         for a in self._grid.axes():
             self.log.info('Found parameter %s with min=%.2f, max=%.2f, and initial=%.2f.',
                           a.name, a.min, a.max, a.initial)
-            self.set(a.name, min=a.min, max=a.max, value=a.initial)
+            self.set(a.name, min=a.min, max=a.max, value=a.initial, values=a.values)
 
     def _model_func(self):
         """Get spectrum with given parameters.

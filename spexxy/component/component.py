@@ -79,7 +79,7 @@ class Component(spexxyObject):
 
         # set values
         for key, val in kwargs.items():
-            if key in ('value', 'stderr', 'vary', 'min', 'max'):
+            if key in ('value', 'stderr', 'vary', 'min', 'max', 'values'):
                 self.parameters[name][key] = Component.dtype(val)
 
     def __getitem__(self, name: str) -> float:
