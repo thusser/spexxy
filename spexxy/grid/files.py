@@ -9,16 +9,18 @@ from ..data import Spectrum
 class FilesGrid(Grid):
     """Grid working on files with a CSV based database."""
 
-    def __init__(self, filename: str, norm_to_mean: bool = False, *args, **kwargs):
+    def __init__(self, filename: str, norm_to_mean: bool = False, cache: bool = False, *args, **kwargs):
         """Constructs a new Grid.
 
         Args:
             filename: Filename of CSV file.
             norm_to_mean: Normalize spectra to their mean.
+            cache: Cache previously loaded grid points.
         """
 
         # store
         self._norm_to_mean = norm_to_mean
+        self._cache = {} if cache else None
 
         # expand filename
         filename = os.path.expandvars(filename)
@@ -91,6 +93,10 @@ class FilesGrid(Grid):
             Grid value at given position.
         """
 
+        # in cache?
+        if self._cache is not None and tuple(params) in self._cache:
+            return self._cache[tuple(params)]
+
         # get filename
         tmp = self._data.loc[tuple(params)]
         if isinstance(tmp, pd.core.frame.DataFrame):
@@ -106,6 +112,10 @@ class FilesGrid(Grid):
         # normalize?
         if self._norm_to_mean:
             spec.norm_to_mean()
+
+        # in cache?
+        if self._cache is not None:
+            self._cache[tuple(params)] = spec
 
         # return it
         return spec
