@@ -64,7 +64,6 @@ class BruteFit(BaseParamsFit):
 
                 # log new best result
                 self._callback(p, iter, None)
-                break
 
         # return results
         return list(best[1]) + [True, best[0]]
