@@ -136,10 +136,10 @@ class Component(spexxyObject):
                 if key not in param:
                     param[key] = val
 
-            # remove stderr
-            for k in ['stderr']:
+            # remove stderr and values
+            for k in ['stderr', 'values']:
                 if k in param:
-                    del param['stderr']
+                    del param[k]
 
             # normalize?
             if self.normalize:
