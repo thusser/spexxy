@@ -459,7 +459,7 @@ class SynspecGrid(Grid):
             # write vturb
             f.write('VTB=%.2f\n' % vturb)
             # write parameters from constructor
-            for key, val in self._nstf.items()
+            for key, val in self._nstf.items():
                 # only write non-None values
                 if val is not None:
                     f.write('%s=%s\n' % (key.upper(), str(val)))
