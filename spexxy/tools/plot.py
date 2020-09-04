@@ -18,6 +18,7 @@ def add_parser(subparsers):
     parser.add_argument('-r', '--results', help='Include results', action='store_true')
     parser.add_argument('-s', '--single', help='Plot all spectra into single plot', action='store_true')
     parser.add_argument('--range', type=float, nargs=2, help='Wavelength range to plot')
+    parser.add_argument('--mode', type=str, choices=['wave', 'log'], help='Force wavelength mode for plot')
 
     # argparse wrapper for plot
     def run(args):
@@ -28,7 +29,9 @@ def add_parser(subparsers):
     parser.set_defaults(func=run)
 
 
-def plot_single(spectra: list, **kwargs):
+def plot_single(spectra: list, mode: str = None, **kwargs):
+    from spexxy.data import Spectrum
+
     # create plot
     fig, ax = plt.subplots(figsize=(11.69, 8.27))
 
@@ -38,6 +41,13 @@ def plot_single(spectra: list, **kwargs):
         with FitsSpectrum(filename) as fs:
             # get spectrum
             spec = fs.spectrum
+
+            # force mode?
+            if mode:
+                if mode == 'wave':
+                    spec.mode(Spectrum.Mode.LAMBDA)
+                else:
+                    spec.mode(Spectrum.Mode.LOGLAMBDA)
 
             # plot it
             ax.plot(spec.wave, spec.flux, ls="-", lw=1., marker="None", label=filename)
@@ -52,7 +62,9 @@ def plot_single(spectra: list, **kwargs):
     plt.show()
 
 
-def plot(spectra: list, output: str = None, results: bool = False, range: list = None, **kwargs):
+def plot(spectra: list, output: str = None, results: bool = False, range: list = None, mode: str = None, **kwargs):
+    from spexxy.data import Spectrum
+
     # if spectra not a list, make it a list
     if not isinstance(spectra, list):
         spectra = [spectra]
@@ -83,6 +95,13 @@ def plot(spectra: list, output: str = None, results: bool = False, range: list =
 
             # good pixels
             valid = fs.good_pixels
+
+            # force mode?
+            if mode:
+                if mode == 'wave':
+                    spec.mode(Spectrum.Mode.LAMBDA)
+                else:
+                    spec.mode(Spectrum.Mode.LOGLAMBDA)
 
         # plot
         plot_spectrum(spec, model, residuals, valid, wave_range=range, title=fs.filename)
