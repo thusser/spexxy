@@ -189,6 +189,7 @@ class SynspecGrid(Grid):
                  nungam: int = 0, nunbal: int = 0, ifreq: int = 1, inlte: int = 0, icontl: int = 0, inlist: int = 0,
                  ifhe2: int = 0, ihydpr: int = 1, ihe1pr: int = 0, ihe2pr: int = 0, cutof0: int = 40, cutofs: int = 0,
                  relop: float = 1e-5, space: float = 0.03, normalize: bool = False, nstfile: str = 'nstf',
+                 nd: int = None, ifmol: int = 1, tmolim: float = None, ippick: int = None, ibfac: int = None,
                  *args, **kwargs):
         """Constructs a new Grid.
 
@@ -229,6 +230,11 @@ class SynspecGrid(Grid):
             space:
             normalize: Normalize spectra
             nstfile: Name of file with non-standard flags
+            nd:
+            ifmol:
+            tmolim:
+            ippick:
+            ibfac:
         """
         from ..interpolator import Interpolator
         Grid.__init__(self, axes=None, *args, **kwargs)
@@ -247,6 +253,7 @@ class SynspecGrid(Grid):
                                 cutof0=cutof0, cutofs=cutofs, relop=relop, space=space)
         self._normalize = normalize
         self._nstfile = nstfile
+        self._nstf = dict(nd=nd, ifmol=ifmol, tmolim=tmolim, ippick=ippick, ibfac=ibfac)
 
         # load grid
         self._models: Grid = self.get_objects(models, [Grid, Interpolator], 'grids', self.log, single=True)
@@ -449,13 +456,13 @@ class SynspecGrid(Grid):
 
         # write file
         with open(self._nstfile, 'w') as f:
-            # TODO: these need to be parameters
-            #f.write('ND=64\n')
+            # write vturb
             f.write('VTB=%.2f\n' % vturb)
-            f.write('IFMOL=1\n')
-            f.write('TMOLIM=8000.\n')
-            f.write('IPPICK=0\n')
-            f.write('IBFAC=1\n')
+            # write parameters from constructor
+            for key, val in self._nstf:
+                # only write non-None values
+                if val is not None:
+                    f.write('%s=%s\n' % (key.upper(), str(val)))
 
     def _write_fort55(self):
         """Writes the fort.55 file."""
