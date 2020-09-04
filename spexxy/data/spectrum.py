@@ -903,6 +903,9 @@ class Spectrum(object):
             Loaded spectrum.
         """
 
+        # expand vars on filename
+        filename = os.path.expandvars(filename)
+
         # is it a FITS file?
         if filename.endswith(".fit") or filename.endswith(".FIT") or \
                 filename.endswith(".fits") or filename.endswith(".FITS"):

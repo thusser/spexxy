@@ -58,6 +58,9 @@ class LSF(object):
             The LSF object.
         """
 
+        # expand vars on filename
+        filename = os.path.expandvars(filename)
+
         # if it's a FITS file, we assume it to be an empirical LSF
         if filename.upper().endswith('.FIT') or filename.upper().endswith('.FITS'):
             return EmpiricalLSF(filename)

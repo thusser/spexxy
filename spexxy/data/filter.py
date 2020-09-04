@@ -38,8 +38,7 @@ class Filter(object):
             self._filter_filename = filter_name
         else:
             # build filename
-            directory = os.path.expandvars(path)
-            self._filter_filename = os.path.join(directory, filter_name + file_extension)
+            self._filter_filename = os.path.join(path, filter_name + file_extension)
 
         # load filter
         self._throughput = Spectrum.load(self._filter_filename)
