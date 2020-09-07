@@ -43,7 +43,7 @@ def add_parser(subparsers):
         if args.single:
             plot_single(**p)
         else:
-            plot(**vars(p))
+            plot(**p)
     parser.set_defaults(func=run)
 
 
