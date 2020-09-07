@@ -1,3 +1,5 @@
+import glob
+
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib import gridspec
@@ -22,10 +24,23 @@ def add_parser(subparsers):
 
     # argparse wrapper for plot
     def run(args):
+        # args to dict
+        p = vars(args)
+
+        # glob spectra
+        spectra = []
+        for s in p['spectra']:
+            if '*' in s or '?' in s:
+                spectra.extend(glob.glob(s))
+            else:
+                spectra.append(s)
+        p['spectra'] = spectra
+
+        # call method
         if args.single:
-            plot_single(**vars(args))
+            plot_single(**p)
         else:
-            plot(**vars(args))
+            plot(**vars(p))
     parser.set_defaults(func=run)
 
 
