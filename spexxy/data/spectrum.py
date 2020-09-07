@@ -997,9 +997,9 @@ class SpectrumFitsHDU(Spectrum):
                         wave_filename = os.path.join(os.path.dirname(filename), hdr['WAVE'])
 
                         # is it a file?
-                        if os.path.exists(hdr['WAVE']):
+                        if os.path.exists(wave_filename):
                             # load from file
-                            f = fits.open(hdr['WAVE'], memmap=False)
+                            f = fits.open(wave_filename, memmap=False)
                             wave_hdu = f[0]
                             tmp = wave_hdu.data
                             f.close()
