@@ -986,13 +986,24 @@ class SpectrumFitsHDU(Spectrum):
 
                 # do we have an extra HDU for wavelength array?
                 if 'WAVE' in hdr:
-                    # yes, check hdu_list
-                    if hdu_list is None:
-                        raise ValueError('No HDU list given for loading '
-                                         'wavelength array.')
+                    # is it a file?
+                    if os.path.exists(hdr['WAVE']):
+                        # load from file
+                        f = fits.open(hdr['WAVE'], memmap=False)
+                        wave_hdu = f[0]
+                        tmp = wave_hdu.data
+                        f.close()
 
-                    # get HDU and data
-                    wave_hdu = hdu_list[hdr['WAVE']]
+                    else:
+                        # no file, must be HDU, check hdu_list
+                        if hdu_list is None:
+                            raise ValueError('No HDU list given for loading '
+                                             'wavelength array.')
+
+                        # get HDU and data
+                        wave_hdu = hdu_list[hdr['WAVE']]
+
+                    # set data
                     self._wavelength = wave_hdu.data
                     self._wave_start = self._wavelength[0]
                     self._wave_step = 0
