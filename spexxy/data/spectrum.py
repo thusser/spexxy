@@ -918,13 +918,8 @@ class Spectrum(object):
 
             # WAVE keyword?
             if "WAVE" in hdr.keys():
-                # does it reference a HDU?
-                if hdr['WAVE'] in f:
-                    # normal fits spectrum with WAVE extension
-                    return SpectrumFits(filename)
-                else:
-                    # HiRes spectrum with wavelength in extra file
-                    return SpectrumHiResFITS(filename)
+                # normal fits spectrum with WAVE extension
+                return SpectrumFits(filename)
 
             elif hdr["NAXIS"] == 0:
                 # no axis given? bin tabke!
@@ -948,7 +943,7 @@ class SpectrumFitsHDU(Spectrum):
     This class allows to load a spectrum from a FITS HDU and save it into one.
     """
 
-    def __init__(self, hdu=None, hdu_list=None, primary=True, dtype=np.float32, *args, **kwargs):
+    def __init__(self, hdu=None, hdu_list=None, primary=True, dtype=np.float32, filename: str = None, *args, **kwargs):
         """Initialize a new Spectrum from a FITS HDU
 
         Args:
@@ -956,6 +951,7 @@ class SpectrumFitsHDU(Spectrum):
             hdu_list: Probably necessary for loading wavelength array.
             primary: Whether the HDU should be a primary HDU. If HDU is given, this is ignored and derived automatically.
             dtype: Data type of array.
+            filename: Name of file this HDU is in.
         """
         Spectrum.__init__(self, *args, **kwargs)
 
@@ -986,15 +982,8 @@ class SpectrumFitsHDU(Spectrum):
 
                 # do we have an extra HDU for wavelength array?
                 if 'WAVE' in hdr:
-                    # is it a file?
-                    if os.path.exists(hdr['WAVE']):
-                        # load from file
-                        f = fits.open(hdr['WAVE'], memmap=False)
-                        wave_hdu = f[0]
-                        tmp = wave_hdu.data
-                        f.close()
-
-                    else:
+                    # is there a HDU with this name?
+                    if hdu_list is not None and hdr['WAVE'] in hdu_list:
                         # no file, must be HDU, check hdu_list
                         if hdu_list is None:
                             raise ValueError('No HDU list given for loading '
@@ -1002,6 +991,22 @@ class SpectrumFitsHDU(Spectrum):
 
                         # get HDU and data
                         wave_hdu = hdu_list[hdr['WAVE']]
+
+                    else:
+                        # try to buld filename
+                        wave_filename = os.path.join(os.path.dirname(filename), hdr['WAVE'])
+
+                        # is it a file?
+                        if os.path.exists(hdr['WAVE']):
+                            # load from file
+                            f = fits.open(hdr['WAVE'], memmap=False)
+                            wave_hdu = f[0]
+                            tmp = wave_hdu.data
+                            f.close()
+
+                        else:
+                            # something else
+                            raise ValueError('Could not load wavelength array')
 
                     # set data
                     self._wavelength = wave_hdu.data
@@ -1150,7 +1155,7 @@ class SpectrumFits(SpectrumFitsHDU):
         # load it
         if filename:
             f = fits.open(filename, memmap=False)
-            SpectrumFitsHDU.__init__(self, hdu=f[extension], hdu_list=f, *args, **kwargs)
+            SpectrumFitsHDU.__init__(self, hdu=f[extension], hdu_list=f, filename=filename, *args, **kwargs)
             f.close()
         else:
             SpectrumFitsHDU.__init__(self, *args, **kwargs)

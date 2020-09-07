@@ -152,7 +152,7 @@ class FitsSpectrum(object):
             raise ValueError('Not a spectrum extension.')
 
         # create spectrum and return it
-        self._hdu_as_spectrum[fits_hdu] = SpectrumFitsHDU(fits_hdu, hdu_list=self._fits)
+        self._hdu_as_spectrum[fits_hdu] = SpectrumFitsHDU(fits_hdu, hdu_list=self._fits, filename=self._filename)
         return self._hdu_as_spectrum[fits_hdu]
 
     def __setitem__(self, hdu_name, spec):
