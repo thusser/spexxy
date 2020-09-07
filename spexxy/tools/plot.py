@@ -1,5 +1,7 @@
 import glob
+from itertools import cycle
 
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib import gridspec
@@ -21,6 +23,7 @@ def add_parser(subparsers):
     parser.add_argument('-s', '--single', help='Plot all spectra into single plot', action='store_true')
     parser.add_argument('--range', type=float, nargs=2, help='Wavelength range to plot')
     parser.add_argument('--mode', type=str, choices=['wave', 'log'], help='Force wavelength mode for plot')
+    parser.add_argument('--cmap', type=str, help='Color map to use for color cycle')
 
     # argparse wrapper for plot
     def run(args):
@@ -44,14 +47,25 @@ def add_parser(subparsers):
     parser.set_defaults(func=run)
 
 
-def plot_single(spectra: list, mode: str = None, **kwargs):
+def plot_single(spectra: list, mode: str = None, cmap: str = None, **kwargs):
     from spexxy.data import Spectrum
 
     # create plot
     fig, ax = plt.subplots(figsize=(11.69, 8.27))
 
+    # define color cycle
+    if cmap is None:
+        # take default color cycle
+        gen = cycle(plt.rcParams['axes.prop_cycle'].by_key()['color'])
+        # and repeat it to get N entries
+        colors = [next(gen) for i in range(len(spectra))]
+    else:
+        # create new color cycle from cmap
+        cmap = mpl.cm.get_cmap(cmap)
+        colors = cmap(np.linspace(0.1, 0.9, len(spectra)))
+
     # loop spectra
-    for filename in sorted(spectra):
+    for i, filename in enumerate(sorted(spectra)):
         # load spectrum
         with FitsSpectrum(filename) as fs:
             # get spectrum
@@ -65,7 +79,7 @@ def plot_single(spectra: list, mode: str = None, **kwargs):
                     spec.mode(Spectrum.Mode.LOGLAMBDA)
 
             # plot it
-            ax.plot(spec.wave, spec.flux, ls="-", lw=1., marker="None", label=filename)
+            ax.plot(spec.wave, spec.flux, ls="-", lw=1., c=colors[i], marker="None", label=filename)
 
     # wrap up
     ax.set_xlabel(r"$\mathrm{Wavelength}\ \lambda\,[\mathrm{\AA}]$", fontsize=20)
