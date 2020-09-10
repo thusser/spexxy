@@ -1194,7 +1194,7 @@ class SpectrumFits(SpectrumFitsHDU):
 class SpectrumHiResFITS(Spectrum):
     """Handles HiRes spectra from the PHOENIX library."""
 
-    def __init__(self, filename: str, *args, **kwargs):
+    def __init__(self, filename: str = None, *args, **kwargs):
         """Loads a HiRes spectrum from file.
 
         Args:
@@ -1202,31 +1202,33 @@ class SpectrumHiResFITS(Spectrum):
         """
         Spectrum.__init__(self, *args, **kwargs)
 
-        # get flux
-        self.flux = fits.getdata(filename, 0)
-        if len(self.flux) == 1 and len(self.flux[0]) > 1:
-            self.flux = self.flux[0]
+        # file given?
+        if filename is not None:
+            # get flux
+            self.flux = fits.getdata(filename, 0)
+            if len(self.flux) == 1 and len(self.flux[0]) > 1:
+                self.flux = self.flux[0]
 
-        # get header
-        hdr = fits.getheader(filename, 0)
+            # get header
+            hdr = fits.getheader(filename, 0)
 
-        # get path of filename
-        path = os.path.dirname(filename)
+            # get path of filename
+            path = os.path.dirname(filename)
 
-        # get filename of wavelength file
-        wave_file = path + ('/' if len(path) > 0 else "") + hdr["WAVE"]
+            # get filename of wavelength file
+            wave_file = path + ('/' if len(path) > 0 else "") + hdr["WAVE"]
 
-        # get wavelength array
-        self._wave_step = 0.
-        self._wavelength = fits.getdata(wave_file)
-        if "CTYPE1" in hdr.keys() and \
-                (hdr["CTYPE1"] == "WAVE-LOG" or hdr["CTYPE1"] == "AWAV-LOG"):
-            self._wave_mode = Spectrum.Mode.LOGLAMBDA
-        else:
-            self._wave_mode = Spectrum.Mode.LAMBDA
+            # get wavelength array
+            self._wave_step = 0.
+            self._wavelength = fits.getdata(wave_file)
+            if "CTYPE1" in hdr.keys() and \
+                    (hdr["CTYPE1"] == "WAVE-LOG" or hdr["CTYPE1"] == "AWAV-LOG"):
+                self._wave_mode = Spectrum.Mode.LOGLAMBDA
+            else:
+                self._wave_mode = Spectrum.Mode.LAMBDA
 
-        # is it valid?
-        self._valid = np.zeros(self.flux.shape, dtype=np.bool)
+            # is it valid?
+            self._valid = np.zeros(self.flux.shape, dtype=np.bool)
 
 
 class SpectrumBinTableFITS(Spectrum):
