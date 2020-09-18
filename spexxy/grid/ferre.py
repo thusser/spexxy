@@ -137,10 +137,10 @@ class FerreGrid(Grid):
         return line
 
     def all(self) -> List[Tuple]:
-        pass
+        return list(self._params_line.keys())
 
     def __contains__(self, params: Tuple) -> bool:
-        pass
+        return params in self._params_line
 
     def __call__(self, params: Tuple) -> Any:
         # get line in file
