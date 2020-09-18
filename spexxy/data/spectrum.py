@@ -1174,6 +1174,10 @@ class SpectrumFits(SpectrumFitsHDU):
         else:
             SpectrumFitsHDU.__init__(self, *args, **kwargs)
 
+    @property
+    def filename(self):
+        return self._filename
+
     def save(self, filename: str = None, headers: dict = None):
         """Save spectrum to FITS file
 
