@@ -24,6 +24,7 @@ class Spectrum(object):
         """Spectrum wavelength mode."""
         LAMBDA = 0
         LOGLAMBDA = 1
+        LOG10LAMBDA = 2
 
     def __init__(self, spec: 'Spectrum' = None, copy_flux: bool = True, wave: np.ndarray = None,
                  wave_start: float = None, wave_count: int = None, wave_step: float = None, wave_end: float = None,
@@ -630,15 +631,28 @@ class Spectrum(object):
             m: New mode of spectrum.
         """
 
-        # nothing to do?
-        if m == self._wave_mode:
-            return
-
         # convert
-        if m == Spectrum.Mode.LAMBDA:
-            self._wavelength = np.exp(self.wave)
-        else:
+        if self._wave_mode == Spectrum.Mode.LAMBDA and m == Spectrum.Mode.LOGLAMBDA:
+            # LAMBDA to LOG
             self._wavelength = np.log(self.wave)
+        elif self._wave_mode == Spectrum.Mode.LAMBDA and m == Spectrum.Mode.LOG10LAMBDA:
+            # LAMBDA to LOG10
+            self._wavelength = np.log10(self.wave)
+        elif self._wave_mode == Spectrum.Mode.LOGLAMBDA and m == Spectrum.Mode.LAMBDA:
+            # LOG to LAMBDA
+            self._wavelength = np.exp(self.wave)
+        elif self._wave_mode == Spectrum.Mode.LOGLAMBDA and m == Spectrum.Mode.LOG10LAMBDA:
+            # LOG to LOG10
+            self._wavelength = np.log10(np.exp(self.wave))
+        elif self._wave_mode == Spectrum.Mode.LOG10LAMBDA and m == Spectrum.Mode.LAMBDA:
+            # LOG10 to LAMBDA
+            self._wavelength = np.power(10., self.wave)
+        elif self._wave_mode == Spectrum.Mode.LOG10LAMBDA and m == Spectrum.Mode.LOGLAMBDA:
+            # LOG10 to LOG
+            self._wavelength = np.log(np.power(10., self.wave))
+        else:
+            # do nothing
+            return
 
         # set values
         self._wave_start = self._wavelength[0]
