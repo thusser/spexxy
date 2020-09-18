@@ -273,5 +273,24 @@ class Grid(spexxyObject):
         # get best match
         return all_params[np.argmin(dist)]
 
+    @staticmethod
+    def load(filename: str) -> 'Grid':
+        """Tries to identify type of grid and loads it.
+
+        Args:
+            filename: Name of file to load.
+        """
+
+        # in this naive implementation, we just check file type
+        if filename.endswith('.csv'):
+            # might be a files grid
+            from .files import FilesGrid
+            return FilesGrid(filename)
+
+        elif filename.endswith('.dat'):
+            # might be a ferre grid
+            from .ferre import FerreGrid
+            return FerreGrid(filename)
+
 
 __all__ = ['GridAxis', 'Grid']
