@@ -52,10 +52,7 @@ def convolve_grid(ingrid: str, outdir: str, wave_start: float, wave_end: float, 
     if not os.path.exists(outdir):
         os.makedirs(outdir)
     with open(os.path.join(outdir, 'grid.csv'), 'w') as f:
-        f.write('Filename')
-        for axis in grid.axes():
-            f.write(',' + axis.name)
-        f.write('\n')
+        f.write('Filename,' + ','.join(grid.axis_names()) + '\n')
 
     # get all params
     all_params = grid.all()
@@ -71,7 +68,7 @@ def convolve_grid(ingrid: str, outdir: str, wave_start: float, wave_end: float, 
         # does spectrum have a filename or do we need to create one?
         if hasattr(spec, 'filename'):
             filename = spec.filename
-            basepath = os.path.relpath(filename, ingrid)
+            basepath = os.path.relpath(filename, os.path.dirname(ingrid))
         else:
             filename = 'spec_' + '_'.join(['%.2f' % p for p in params]) + '.fits'
             basepath = filename
@@ -137,9 +134,6 @@ def convolve_grid(ingrid: str, outdir: str, wave_start: float, wave_end: float, 
 
         # add to CSV
         with open(os.path.join(outdir, 'grid.csv'), 'a') as f:
-            f.write(filename)
-            for p in params:
-                f.write(',' + str(p))
-            f.write('\n')
+            csv.write(filename + ',' + ','.join([str(p) for p in params]) + '\n')
 
 
