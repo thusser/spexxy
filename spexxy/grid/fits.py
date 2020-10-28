@@ -66,7 +66,7 @@ class FitsGrid(Grid):
         Returns:
             Whether or not the given parameter set exists in the grid.
         """
-        return tuple(params) in self._data
+        return tuple(params) in self._data.index
 
     def __call__(self, params: Tuple) -> Any:
         """Fetches the value for the given parameter set.
