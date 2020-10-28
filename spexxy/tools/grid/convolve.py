@@ -133,7 +133,5 @@ def convolve_grid(ingrid: str, outdir: str, wave_start: float, wave_end: float, 
         SpectrumFits(spec=spec).save(outfile)
 
         # add to CSV
-        with open(os.path.join(outdir, 'grid.csv'), 'a') as f:
+        with open(os.path.join(outdir, 'grid.csv'), 'a') as csv:
             csv.write(filename + ',' + ','.join([str(p) for p in params]) + '\n')
-
-
