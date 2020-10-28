@@ -34,7 +34,6 @@ class FitsGrid(Grid):
         # load parameters into a pandas table
         self._data = Table(fits.getdata(filename, 'PARAMS')).to_pandas()
         idx_columns = list(self._data.columns.values)
-        self._params_tuple = [tuple(row.values) for _, row in self._data.iterrows()]
 
         # add row
         self._data['row'] = range(len(self._data))
