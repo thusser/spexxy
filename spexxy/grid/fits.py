@@ -41,14 +41,13 @@ class FitsGrid(Grid):
         # add row
         self._data['row'] = range(len(self._data))
 
+        # create axes and init grid
+        values = {name: sorted([float(v) for v in self._data[name].unique()]) for name in idx_columns}
+        axes = [GridAxis(name=name, values=values[name]) for name in idx_columns]
+        Grid.__init__(self, axes, *args, **kwargs)
+
         # set index
         self._data.set_index(idx_columns, inplace=True)
-
-        # create axes
-        axes = [GridAxis(name=name, values=sorted(self._data[name].unique())) for name in self._data.columns]
-
-        # init grid
-        Grid.__init__(self, axes, *args, **kwargs)
 
     def all(self) -> List[Tuple]:
         """Return all possible parameter combinations.
