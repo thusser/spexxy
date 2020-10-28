@@ -23,6 +23,9 @@ class FitsGrid(Grid):
         # store
         self._norm_to_mean = norm_to_mean
 
+        # expand filename
+        filename = os.path.expandvars(filename)
+
         # load data
         self._spectra, hdr = fits.getdata(filename, header=True)
 
