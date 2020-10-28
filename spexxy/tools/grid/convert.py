@@ -92,9 +92,13 @@ def _convert_to_fits(args):
     while len(header) < 10:
         header.append()  # Adds a blank card to the end
 
-    # reset size and write to file
+    # reset size, set some headers and write to file
     header['NAXIS1'] = nwave
     header['NAXIS2'] = len(all_params)
+    header['CRVAL1'] = header['WSTART'] = (spec.wave_start, 'Wavelength at reference pixel')
+    header['CDELT1'] = header['WSTEP'] = (spec.wave_step, 'Wavelength grid step size')
+    header['CRPIX1'] = (spec.wave_step, 'Reference pixel coordinates')
+    header['CTYPE1'] = ('AWAV' if spec.wave_mode == Spectrum.Mode.LAMBDA else 'AWAV-LOG', 'Type of wavelength grid')
     header.tofile(args.output, overwrite=True)
 
     # grow file to required size
