@@ -35,19 +35,23 @@ class FitsGrid(Grid):
         self._wave_mode = Spectrum.Mode.LAMBDA if hdr['CTYPE1'] == 'AWAV' else Spectrum.Mode.LOGLAMBDA
 
         # load parameters into a pandas table
-        self._data = Table(fits.getdata(filename, 'PARAMS')).to_pandas()
-        idx_columns = list(self._data.columns.values)
+        self._params = Table(fits.getdata(filename, 'PARAMS')).to_pandas()
+        idx_columns = list(self._params.columns.values)
 
         # add row
-        self._data['row'] = range(len(self._data))
+        self._params['row'] = range(len(self._params))
 
         # create axes and init grid
-        values = {name: sorted([float(v) for v in self._data[name].unique()]) for name in idx_columns}
+        values = {name: sorted([float(v) for v in self._params[name].unique()]) for name in idx_columns}
         axes = [GridAxis(name=name, values=values[name]) for name in idx_columns]
         Grid.__init__(self, axes, *args, **kwargs)
 
         # set index
-        self._data.set_index(idx_columns, inplace=True)
+        self._params.set_index(idx_columns, inplace=True)
+
+    @property
+    def data(self):
+        return self._spectra
 
     def all(self) -> List[Tuple]:
         """Return all possible parameter combinations.
@@ -55,7 +59,7 @@ class FitsGrid(Grid):
         Returns:
             All possible parameter combinations.
         """
-        return self._data.index.values
+        return self._params.index.values
 
     def __contains__(self, params: Tuple) -> bool:
         """Checks, whether the grid contains a given parameter set.
@@ -66,7 +70,7 @@ class FitsGrid(Grid):
         Returns:
             Whether or not the given parameter set exists in the grid.
         """
-        return tuple(params) in self._data.index
+        return tuple(params) in self._params.index
 
     def __call__(self, params: Tuple) -> Any:
         """Fetches the value for the given parameter set.
@@ -79,7 +83,7 @@ class FitsGrid(Grid):
         """
 
         # get index of parameters
-        idx = self._data.loc[tuple(params)].row
+        idx = self._params.loc[tuple(params)].row
 
         # get flux
         flux = self._spectra[idx, :]
