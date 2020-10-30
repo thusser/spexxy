@@ -153,6 +153,8 @@ class Application(object):
 
         # init components
         log.info('Setting initial values...')
+        if 'components' not in objects or objects['components'] is None:
+            objects['components'] = {}
         for name, cmp in objects['components'].items():
             cmp.init(filename)
 
