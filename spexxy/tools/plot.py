@@ -24,6 +24,7 @@ def add_parser(subparsers):
     parser.add_argument('--range', type=float, nargs=2, help='Wavelength range to plot')
     parser.add_argument('--mode', type=str, choices=['wave', 'log'], help='Force wavelength mode for plot')
     parser.add_argument('--cmap', type=str, help='Color map to use for color cycle')
+    parser.add_argument('--norm-to-mean', action='store_true', help='Normalize spectra to mean')
 
     # argparse wrapper for plot
     def run(args):
@@ -47,7 +48,7 @@ def add_parser(subparsers):
     parser.set_defaults(func=run)
 
 
-def plot_single(spectra: list, mode: str = None, cmap: str = None, **kwargs):
+def plot_single(spectra: list, mode: str = None, cmap: str = None, norm_to_mean: bool = False, **kwargs):
     from spexxy.data import Spectrum
 
     # create plot
@@ -71,6 +72,10 @@ def plot_single(spectra: list, mode: str = None, cmap: str = None, **kwargs):
             # get spectrum
             spec = fs.spectrum
 
+            # norm?
+            if norm_to_mean:
+                spec.norm_to_mean()
+
             # force mode?
             if mode:
                 if mode == 'wave':
@@ -91,7 +96,8 @@ def plot_single(spectra: list, mode: str = None, cmap: str = None, **kwargs):
     plt.show()
 
 
-def plot(spectra: list, output: str = None, results: bool = False, range: list = None, mode: str = None, **kwargs):
+def plot(spectra: list, output: str = None, results: bool = False, range: list = None, mode: str = None,
+         norm_to_mean: bool = False,**kwargs):
     from spexxy.data import Spectrum
 
     # if spectra not a list, make it a list
@@ -115,6 +121,10 @@ def plot(spectra: list, output: str = None, results: bool = False, range: list =
         with FitsSpectrum(filename) as fs:
             # get spectrum
             spec = fs['NORMALIZED'] if 'NORMALIZED' in fs and results else fs.spectrum
+
+            # norm?
+            if norm_to_mean:
+                spec.norm_to_mean()
 
             # and model
             model = fs.best_fit if results else None
