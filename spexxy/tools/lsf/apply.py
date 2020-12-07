@@ -20,7 +20,7 @@ def run(args):
     lsf.resample(spec)
 
     # apply
-    output = lsf.apply(spec)
+    output = lsf(spec)
 
     # save it
     output.save(args.output)
