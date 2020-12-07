@@ -404,7 +404,7 @@ class SynspecGrid(Grid):
         finally:
             # return to old directory and clean up
             os.chdir(cwd)
-            if self._tempdir is not None:
+            if self._tempdir is None:
                 shutil.rmtree(tmp)
 
     def _write_fort5(self, teff, logg, feh, alpha):
