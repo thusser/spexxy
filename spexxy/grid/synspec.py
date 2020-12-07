@@ -190,7 +190,7 @@ class SynspecGrid(Grid):
                  ifhe2: int = 0, ihydpr: int = 1, ihe1pr: int = 0, ihe2pr: int = 0, cutof0: int = 40, cutofs: int = 0,
                  relop: float = 1e-5, space: float = 0.03, normalize: bool = False, nstfile: str = 'nstf',
                  nd: int = None, ifmol: int = 1, tmolim: float = None, ippick: int = None, ibfac: int = None,
-                 *args, **kwargs):
+                 tempdir: str = None, *args, **kwargs):
         """Constructs a new Grid.
 
         Args:
@@ -235,6 +235,7 @@ class SynspecGrid(Grid):
             tmolim:
             ippick:
             ibfac:
+            tempdir: Temporary directory. Won't be delete if given.
         """
         from ..interpolator import Interpolator
         Grid.__init__(self, axes=None, *args, **kwargs)
@@ -246,6 +247,7 @@ class SynspecGrid(Grid):
         self._datadir = datadir
         self._elements = [] if elements is None else elements
         self._range = range
+        self._tempdir = tempdir
         self._parameters = dict(imode=imode, idsts=idstd, iprin=iprin, inmod=inmod, intrpl=intrpl, ichang=ichang,
                                 ichemc=ichemc, iophli=iophli, nunalp=nunalp, nunbet=nunbet, nungam=nungam,
                                 nunbal=nunbal, ifreq=ifreq, inlte=inlte, icontl=icontl, inlist=inlist, ifhe2=ifhe2,
@@ -354,12 +356,11 @@ class SynspecGrid(Grid):
         # find element in models grid
         mod = self._models.filename(params[:4])
 
-        # temp directory
-        tmp = os.path.abspath(mkdtemp())
-
-        # change path
+        # remember path
         cwd = os.getcwd()
-        os.chdir(tmp)
+
+        # go to temp directory
+        os.chdir(self._tempdir if self._tempdir is not None else os.path.abspath(mkdtemp()))
 
         # make sure to delete temp directory in the end
         try:
@@ -402,7 +403,8 @@ class SynspecGrid(Grid):
         finally:
             # return to old directory and clean up
             os.chdir(cwd)
-            shutil.rmtree(tmp)
+            if self._tempdir is not None:
+                shutil.rmtree(tmp)
 
     def _write_fort5(self, teff, logg, feh, alpha):
         if self._input is not None:
