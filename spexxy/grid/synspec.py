@@ -360,7 +360,8 @@ class SynspecGrid(Grid):
         cwd = os.getcwd()
 
         # go to temp directory
-        os.chdir(self._tempdir if self._tempdir is not None else os.path.abspath(mkdtemp()))
+        tmp = self._tempdir if self._tempdir is not None else os.path.abspath(mkdtemp())
+        os.chdir(tmp)
 
         # make sure to delete temp directory in the end
         try:
