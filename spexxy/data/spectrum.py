@@ -1321,8 +1321,8 @@ class SpectrumBinTableFITS(Spectrum):
 class SpectrumAscii(Spectrum):
     """Handles spectra stored in ASCII files."""
 
-    def __init__(self, filename: str = None, separator: str = None, skip_lines: int = 0, comment: str = '#',
-                 wave_column: int = 0, flux_column: int = 1, *args, **kwargs):
+    def __init__(self, filename: str = None, separator: str = ',', skip_lines: int = 0, comment: str = '#',
+                 wave_column: int = 0, flux_column: int = 1, header: bool = True, *args, **kwargs):
         """Reads spectrum from ASCII file.
 
         Args:
@@ -1330,12 +1330,14 @@ class SpectrumAscii(Spectrum):
             separator: Separator in file.
             skip_lines: Number of lines to skip while reading file.
             comment: Character indicating a comment line.
+            header: Whether to write a header.
         """
         Spectrum.__init__(self, *args, **kwargs)
 
         # store
         self._filename = filename
         self._separator = separator
+        self._header = header
 
         # load
         if filename:
@@ -1380,6 +1382,11 @@ class SpectrumAscii(Spectrum):
 
         # save it
         with open(filename, 'w') as f:
+            # write header?
+            if self._header:
+                f.write('wavelength,flux\n')
+
+            # write flux
             wave = self.wave
             for i in range(len(self.flux)):
                 f.write("{0:f}{1:s}{2:f}\n".format(wave[i], self._separator, self.flux[i]))
