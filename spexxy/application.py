@@ -2,6 +2,8 @@ import glob
 import logging
 import multiprocessing
 import os
+import time
+
 import pandas as pd
 
 from .main import MainRoutine, FilesRoutine
@@ -128,6 +130,9 @@ class Application(object):
         logging.getLogger('spexxy.main').error('Something went wrong.', exc_info=exception)
 
     def _run_single(self, idx, filename):
+        # start time
+        start_time = time.time()
+
         # main logger
         main_log = logging.getLogger('spexxy.main')
 
@@ -182,7 +187,7 @@ class Application(object):
 
         # shutdown logger
         main_log.info('(%i/%i) Finished file %s...', idx, self._total, filename)
-        log.info('Finished fit.')
+        log.info('Finished fit in %.2f seconds.', time.time() - start_time)
         shutdown_log('spexxy.fit')
 
     def _create_objects(self, log=None):

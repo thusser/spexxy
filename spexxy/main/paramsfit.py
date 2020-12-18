@@ -291,7 +291,6 @@ class ParamsFit(FilesRoutine):
                                     iter_cb=self._callback, max_nfev=self._max_fev, nan_policy='raise',
                                     xtol=self._xtol, ftol=self._ftol, epsfcn=self._epsfcn, factor=self._factor)
         result = minimizer.leastsq()
-        self.log.info('Finished fit.')
 
         # close PDF file
         if self._plot_iterations:
