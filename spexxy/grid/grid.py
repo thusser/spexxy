@@ -292,5 +292,13 @@ class Grid(spexxyObject):
             from .ferre import FerreGrid
             return FerreGrid(filename)
 
+        elif filename.endswith('.fits'):
+            # FITS grid
+            from .fits import FitsGrid
+            return FitsGrid(filename)
+
+        else:
+            raise ValueError('Unknown format')
+
 
 __all__ = ['GridAxis', 'Grid']
