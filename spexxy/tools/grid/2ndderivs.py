@@ -91,7 +91,6 @@ def calc_2nd_derivs(ingrid: str, outdir: str):
         # loop spectra
         log.info('Writing spectra...')
         for i, value in enumerate(avail_values):
-            print(i)
             # create spectrum
             spec = SpectrumFits(spec=ref_spec, flux=derivs[i, :])
 
