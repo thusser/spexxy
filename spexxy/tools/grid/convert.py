@@ -15,6 +15,7 @@ def add_parser(subparsers):
     parser = subparsers.add_parser('convert', help='Convert a grid from one type to another.',
                                    formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('input', type=str, help='Input grid')
+    parser.add_argument('--norm-to-mean', action='store_true', help='Norm input spectra to mean.')
     subparsers = parser.add_subparsers()
 
     # to files grid
@@ -51,6 +52,10 @@ def _convert_to_files(args):
 
             # get spectrum
             spec = SpectrumFits(spec=grid(params))
+
+            # norm?
+            if args.norm_to_mean:
+                spec.norm_to_mean()
 
             # get filename
             p = dict(zip(grid.axis_names(), params))
@@ -117,6 +122,10 @@ def _convert_to_fits(args):
 
         # get spectrum
         spec = SpectrumFits(spec=grid(params))
+
+        # norm?
+        if args.norm_to_mean:
+            spec.norm_to_mean()
 
         # write to FITS file
         output[0].data[i - 1, :] = spec.flux
