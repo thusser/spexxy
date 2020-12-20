@@ -16,14 +16,15 @@ def add_parser(subparsers):
                                    formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('input', type=str, help='Input grid')
     parser.add_argument('output', type=str, help='Output directory, in which a file grid is written')
+    parser.add_argument('--norm-to-mean', action='store_true', help='Norm input spectra to mean.')
 
     # argparse wrapper for create_grid
     def run(args):
-        calc_2nd_derivs(args.input, args.output)
+        calc_2nd_derivs(args.input, args.output, args.norm_to_mean)
     parser.set_defaults(func=run)
 
 
-def calc_2nd_derivs(ingrid: str, outdir: str):
+def calc_2nd_derivs(ingrid: str, outdir: str, norm_to_mean: bool = False):
     # load grid
     grid = Grid.load(ingrid)
 
@@ -60,6 +61,10 @@ def calc_2nd_derivs(ingrid: str, outdir: str):
             try:
                 # load spectrum
                 spec = grid(tuple([value] + list(params)))
+
+                # norm?
+                if norm_to_mean:
+                    spec.norm_to_mean()
 
                 # append flux to data
                 data.append(spec.flux)
