@@ -6,6 +6,7 @@ from scipy.interpolate import UnivariateSpline
 
 from spexxy.grid import Grid
 from spexxy.data import SpectrumFits
+from spexxy.interpolator.spline import calc_2nd_derivs_spline
 
 log = logging.getLogger(__name__)
 
@@ -74,29 +75,11 @@ def calc_2nd_derivs(ingrid: str, outdir: str, norm_to_mean: bool = False):
                 # could not load spectrum
                 continue
 
-        # convert to numpy
-        data = np.array(data)
-        avail_values = np.array(avail_values)
+        # log
         log.info('Found %d different values for %s.', len(avail_values), axis.name)
 
-        # get memory for derivs
-        derivs = np.empty(data.shape)
-
-        # loop wavelength points
-        for i in range(data.shape[1]):
-            try:
-                # create spline
-                spline = UnivariateSpline(avail_values, data[:, i])
-
-                # get 2nd derivative
-                spline2nd = spline.derivative(2)
-
-                # evaluate it
-                derivs[:, i] = spline2nd(avail_values)
-
-            except Exception:
-                # on exception, fill with zeros
-                derivs[:, i] = np.zeros((len(derivs[:, i])))
+        # calculate 2nd derivatives from spline
+        derivs = calc_2nd_derivs_spline(avail_values, data)
 
         # loop spectra
         log.info('Writing spectra...')
