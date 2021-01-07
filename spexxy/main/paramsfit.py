@@ -7,6 +7,7 @@ from typing import List
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 import pandas as pd
+from spexxy.interpolator import Interpolator
 
 from spexxy.data import FitsSpectrum, Spectrum
 from spexxy.component import Component
@@ -239,6 +240,9 @@ class ParamsFit(FilesRoutine):
         Returns:
             List of final values of parameters, ordered in the same way as the return value of parameters()
         """
+
+        # clear interpolator cache
+        Interpolator.clear_cache()
 
         # fix any parameters?
         for cmp_name, cmp in self.objects['components'].items():

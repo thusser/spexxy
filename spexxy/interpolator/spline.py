@@ -61,8 +61,10 @@ def calc_2nd_derivs_spline(x: list, y: list, yp1=np.inf, ypn=np.inf):
 
 class SplineInterpolator(Interpolator):
     """A cubic spline interpolator that operates on a given grid."""
+    CACHE = {}
 
-    def __init__(self, grid: Grid, derivs: Grid = None, n: int = 1, verbose: bool = False, *args, **kwargs):
+    def __init__(self, grid: Grid, derivs: Grid = None, n: int = 1, verbose: bool = False, cache: bool = False,
+                 *args, **kwargs):
         """Initializes a new linear interpolator.
 
         Args:
@@ -83,6 +85,7 @@ class SplineInterpolator(Interpolator):
         self._axes = self._grid.axes()
         self._npoints = n
         self._verbose = verbose
+        self._cache = cache
 
     @property
     def grid(self) -> Grid:
@@ -122,6 +125,10 @@ class SplineInterpolator(Interpolator):
         Returns:
             Interpolated spectrum at given position.
         """
+
+        # caching?
+        if self._cache and params in SplineInterpolator.CACHE:
+            return self.CACHE[params]
 
         # no axis given, start at latest
         if axis is None:
@@ -227,7 +234,14 @@ class SplineInterpolator(Interpolator):
             self.log.info('A=%.2f, B=%.2f, C=%.2f, D=%.2f', A, B, C, D)
 
         # interpolate
-        return lower_data * A + higher_data * B + lower_deriv * C + higher_deriv * D
+        ip = lower_data * A + higher_data * B + lower_deriv * C + higher_deriv * D
+
+        # caching?
+        if self._cache:
+            SplineInterpolator.CACHE[params] = ip
+
+        # finished
+        return ip
 
 
 __all__ = ['SplineInterpolator', 'calc_2nd_derivs_spline']

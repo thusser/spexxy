@@ -6,6 +6,7 @@ from ..grid import GridAxis
 
 class Interpolator(spexxyObject):
     """Base class for all interpolators in spexxy."""
+    CACHE = []
 
     def __init__(self, *args, **kwargs):
         """Initializes a new interpolator."""
@@ -29,6 +30,11 @@ class Interpolator(spexxyObject):
             Interpolation result at given position
         """
         raise NotImplementedError
+
+    @staticmethod
+    def clear_cache():
+        """Clear cache."""
+        Interpolator.CACHE = []
 
 
 __all__ = ['Interpolator']
