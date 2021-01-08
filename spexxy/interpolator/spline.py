@@ -61,10 +61,7 @@ def calc_2nd_derivs_spline(x: list, y: list, yp1=np.inf, ypn=np.inf):
 
 class SplineInterpolator(Interpolator):
     """A cubic spline interpolator that operates on a given grid."""
-    CACHE = {}
-
-    def __init__(self, grid: Grid, derivs: Grid = None, n: int = 1, verbose: bool = False, cache_level: int = 0,
-                 *args, **kwargs):
+    def __init__(self, grid: Grid, derivs: Grid = None, n: int = 1, verbose: bool = False, *args, **kwargs):
         """Initializes a new linear interpolator.
 
         Args:
@@ -73,8 +70,6 @@ class SplineInterpolator(Interpolator):
                 the first axis of the grid.
             n: Number of points on each side to use for calculating derivatives.
             verbose: If True, output some more logs
-            cache_level: Level of caching: 0 means off, 1 means only last dimension, 2 is last 2 dimensions and so on.
-                Interpolation might be faster with higher level, but will consume significantly more memory.
         """
         Interpolator.__init__(self, *args, **kwargs)
 
@@ -87,7 +82,6 @@ class SplineInterpolator(Interpolator):
         self._axes = self._grid.axes()
         self._npoints = n
         self._verbose = verbose
-        self._cache_level = cache_level
 
     @property
     def grid(self) -> Grid:
@@ -133,8 +127,8 @@ class SplineInterpolator(Interpolator):
             axis = len(self._axes) - 1
 
         # caching?
-        if self._cache_level <= len(self._axes) - axis - 1 and params in SplineInterpolator.CACHE:
-            return self.CACHE[params]
+        if self.cache_level <= len(self._axes) - axis - 1 and params in self.cache:
+            return self.cache[params]
 
         # check boundaries
         if params[axis] < self._axes[axis].min or params[axis] > self._axes[axis].max:
@@ -239,8 +233,8 @@ class SplineInterpolator(Interpolator):
         ip = lower_data * A + higher_data * B + lower_deriv * C + higher_deriv * D
 
         # caching?
-        if self._cache_level <= len(self._axes) - axis - 1:
-            SplineInterpolator.CACHE[params] = ip
+        if self.cache_level <= len(self._axes) - axis - 1:
+            self.cache[params] = ip
 
         # finished
         return ip

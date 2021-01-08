@@ -6,11 +6,16 @@ from ..grid import GridAxis
 
 class Interpolator(spexxyObject):
     """Base class for all interpolators in spexxy."""
-    CACHE = []
+    def __init__(self, cache_level: int = 0, *args, **kwargs):
+        """Initializes a new interpolator.
 
-    def __init__(self, *args, **kwargs):
-        """Initializes a new interpolator."""
+         Args:
+            cache_level: Level of caching: 0 means off, 1 means only last dimension, 2 is last 2 dimensions and so on.
+                Interpolation might be faster with higher level, but will consume significantly more memory.
+        """
         spexxyObject.__init__(self, *args, **kwargs)
+        self.cache_level = cache_level
+        self.cache = {}
 
     def axes(self) -> List[GridAxis]:
         """Returns information about the axes.
@@ -31,10 +36,9 @@ class Interpolator(spexxyObject):
         """
         raise NotImplementedError
 
-    @staticmethod
-    def clear_cache():
+    def clear_cache(self):
         """Clear cache."""
-        Interpolator.CACHE = []
+        self.cache = {}
 
 
 __all__ = ['Interpolator']
