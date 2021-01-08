@@ -373,6 +373,9 @@ class ParamsFit(FilesRoutine):
                 p = '%s%s' % (cmp.prefix, n)
                 results += [cmp.parameters[n]['value'], cmp.parameters[n]['stderr']]
 
+        # clear interpolator cache
+        Interpolator.clear_cache()
+
         # success?
         results += [success, result.redchi]
         return results
