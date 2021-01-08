@@ -16,6 +16,7 @@ setup(
         ]
     },
     include_package_data=True,
+    python_requires='>=3.7',
     install_requires=[
         'scipy',
         'numpy',
