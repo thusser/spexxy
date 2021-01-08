@@ -3,8 +3,9 @@ import logging
 import multiprocessing
 import os
 import time
-
+import gc
 import pandas as pd
+from spexxy.interpolator import Interpolator
 
 from .main import MainRoutine, FilesRoutine
 from .object import create_object
@@ -184,6 +185,23 @@ class Application(object):
 
                 # write line break
                 f.write('\n')
+
+        # clear cache in all interpolators
+        if 'interpolators' in objects:
+            log.info('Clearing all interpolator caches...')
+            cleared_caches = 0
+            for o in objects['interpolators'].values():
+                if isinstance(o, Interpolator):
+                    o.clear_cache()
+                    cleared_caches += 1
+            log.info('Cleared %d cache(s).', cleared_caches)
+
+        # clean up
+        log.info('Cleaning up objects...')
+        for group, elements in objects.items():
+            elements.clear()
+        main = None
+        gc.collect()
 
         # shutdown logger
         main_log.info('(%i/%i) Finished file %s...', idx, self._total, filename)
