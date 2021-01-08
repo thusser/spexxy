@@ -5,7 +5,7 @@ from typing import List
 
 import numpy as np
 from scipy.integrate import trapz
-from spexxy.data.spectrum import Spectrum
+from spexxy.data.spectrum import Spectrum, SpectrumAscii
 
 
 class Filter(object):
@@ -41,7 +41,7 @@ class Filter(object):
             self._filter_filename = os.path.join(path, filter_name + file_extension)
 
         # load filter
-        self._throughput = Spectrum.load(self._filter_filename)
+        self._throughput = SpectrumAscii(self._filter_filename, separator=None)
 
     @property
     def filename(self):
@@ -184,10 +184,10 @@ class Filter(object):
             filename = os.path.join(os.path.dirname(__file__), 'vega.sed')
 
             # no vega given? use default
-            self._vega = Spectrum.load(filename)
+            self._vega = SpectrumAscii(filename, separator=None)
 
             # create filter for vega
-            tmp = Spectrum.load(self._filter_filename)
+            tmp = SpectrumAscii(self._filter_filename, separator=None)
             self._vega_throughput = tmp.resample(spec=self._vega, fill_value=0., linear=True)
 
     def vegamag(self, spec: Spectrum) -> float:
