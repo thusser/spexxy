@@ -27,6 +27,9 @@ You can find the documentation for spexxy at <https://spexxy.readthedocs.io/>.
 
 ### Versions
 See [Changelog](CHANGELOG.md).
+* v2.5 (2020-07-14)
+* v2.4.1 (2020-06-19)
+* v2.4 (2020-06-10)
 * v2.3 (2019-11-15)
 * v2.2 (2019-02-04)
 * v2.1 (2018-11-26)
