@@ -127,7 +127,7 @@ class SplineInterpolator(Interpolator):
             axis = len(self._axes) - 1
 
         # caching?
-        if self.cache_level <= len(self._axes) - axis - 1 and params in self.cache:
+        if self.cache_level >= len(self._axes) - axis and params in self.cache:
             return self.cache[params]
 
         # check boundaries
@@ -233,7 +233,7 @@ class SplineInterpolator(Interpolator):
         ip = lower_data * A + higher_data * B + lower_deriv * C + higher_deriv * D
 
         # caching?
-        if self.cache_level <= len(self._axes) - axis - 1:
+        if self.cache_level >= len(self._axes) - axis:
             self.cache[params] = ip
 
         # finished
