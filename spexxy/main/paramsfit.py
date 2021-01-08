@@ -255,9 +255,6 @@ class ParamsFit(FilesRoutine):
             List of final values of parameters, ordered in the same way as the return value of parameters()
         """
 
-        # clear interpolator cache
-        Interpolator.clear_cache()
-
         # fix any parameters?
         for cmp_name, cmp in self.objects['components'].items():
             # loop all parameters of this component
@@ -372,9 +369,6 @@ class ParamsFit(FilesRoutine):
             for n in cmp.param_names:
                 p = '%s%s' % (cmp.prefix, n)
                 results += [cmp.parameters[n]['value'], cmp.parameters[n]['stderr']]
-
-        # clear interpolator cache
-        Interpolator.clear_cache()
 
         # success?
         results += [success, result.redchi]
