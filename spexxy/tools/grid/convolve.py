@@ -44,10 +44,6 @@ def convolve_grid(ingrid: str, outdir: str, wave_start: float, wave_end: float, 
     # load grid
     grid = Grid.load(ingrid)
 
-    # lsf?
-    lsf = None if lsf_file is None else LSF.load(lsf_file)
-    lsf_rescaled = False
-
     # outdir and grid file
     if not os.path.exists(outdir):
         os.makedirs(outdir)
@@ -96,16 +92,17 @@ def convolve_grid(ingrid: str, outdir: str, wave_start: float, wave_end: float, 
             # convolve
             log.info("  Convolving with FWHM=%f...", fwhm)
             spec.smooth(fwhm)
-        elif lsf is not None:
+        elif lsf_file is not None:
             # constant sampling
             if spec.wave_step == 0.:
                 spec = spec.resample_const()
-            # first spec?
-            if not lsf_rescaled:
-                log.info("  Resampling LSF...")
-                lsf.wave_mode(spec.wave_mode)
-                lsf.resample(spec)
-                lsf_rescaled = True
+
+            # load lsf and resample
+            log.info("  Loading and resampling LSF...")
+            lsf = LSF.load(lsf_file)
+            lsf.wave_mode(spec.wave_mode)
+            lsf.resample(spec)
+
             # convolve
             log.info("  Convolving with LSF...")
             spec = lsf(spec)
