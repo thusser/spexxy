@@ -190,7 +190,7 @@ class SynspecGrid(Grid):
                  ifhe2: int = 0, ihydpr: int = 1, ihe1pr: int = 0, ihe2pr: int = 0, cutof0: int = 40, cutofs: int = 0,
                  relop: float = 1e-5, space: float = 0.03, normalize: bool = False, nstfile: str = 'nstf',
                  nd: int = None, ifmol: int = 1, tmolim: float = None, ippick: int = None, ibfac: int = None,
-                 tempdir: str = None, *args, **kwargs):
+                 tempdir: str = None, solar_abund: Dict[str, float] = None, *args, **kwargs):
         """Constructs a new Grid.
 
         Args:
@@ -236,6 +236,7 @@ class SynspecGrid(Grid):
             ippick:
             ibfac:
             tempdir: Temporary directory. Won't be delete if given.
+            solar_abund: Dictionary with solar abundances to use.
         """
         from ..interpolator import Interpolator
         Grid.__init__(self, axes=None, *args, **kwargs)
@@ -256,6 +257,7 @@ class SynspecGrid(Grid):
         self._normalize = normalize
         self._nstfile = nstfile
         self._nstf = dict(nd=nd, ifmol=ifmol, tmolim=tmolim, ippick=ippick, ibfac=ibfac)
+        self._solar_abund = {} if solar_abund is None else solar_abund
 
         # load grid
         self._models: Grid = self.get_objects(models, [Grid, Interpolator], 'grids', self.log, single=True)
@@ -493,15 +495,32 @@ class SynspecGrid(Grid):
 
             # write changes
             for user_el, user_abund in abunds.items():
+                element_abundance = None
+                element_number = None
+
+                # given by user?
+                if user_el in self._solar_abund:
+                    # using value provided in c'tor
+                    element_abundance = self._solar_abund[user_el]
+
                 # find el in AGSS
                 for no, el, abund, _ in ABUND_AGSS:
                     if el == user_el:
-                        # calculate abundance and write it
-                        a = 10. ** (abund - 12 + user_abund + (feh if no > 1 else 0))
-                        f.write('%d %.3g\n' % (no, a))
+                        # need to set abundance?
+                        if element_abundance is None:
+                            element_abundance = abund
+
+                        # element number
+                        element_number = no
+
+                        # found it, break here
                         break
                 else:
                     raise ValueError('Element %s not found.' % user_el)
+
+                # calculate abundance and write it
+                a = 10. ** (element_abundance - 12 + user_abund + (feh if element_number > 1 else 0))
+                f.write('%d %.3g\n' % (element_number, a))
 
 
 __all__ = ['SynspecGrid']
