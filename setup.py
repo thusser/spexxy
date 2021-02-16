@@ -24,6 +24,7 @@ setup(
         'pandas',
         'lmfit',
         'pyyaml',
-        'matplotlib'
+        'matplotlib',
+        'pyyaml'
     ]
 )
