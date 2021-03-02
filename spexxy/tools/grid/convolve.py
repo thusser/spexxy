@@ -80,6 +80,7 @@ def convolve_grid(ingrid: str, outdir: str, wave_start: float, wave_end: float, 
         # exists?
         if os.path.exists(outfile) and not overwrite:
             log.info('  Exists, skipping...')
+            continue
 
         # log? does nothing, if modes already match
         spec.mode(Spectrum.Mode.LOGLAMBDA if log_convolve else Spectrum.Mode.LAMBDA)
