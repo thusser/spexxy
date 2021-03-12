@@ -33,7 +33,7 @@ def add_parser(subparsers):
     def run(args):
         convolve_grid(args.input, args.output, args.wave[0], args.wave[1], args.wave[2],
                       overwrite=args.overwrite, vac2air=args.air, log_scale=args.log, log_convolve=args.logconv,
-                      normalize=args.normalize, fwhm=args.fwhm, lsf_file=args.lsf, precrop=precrop)
+                      normalize=args.normalize, fwhm=args.fwhm, lsf_file=args.lsf, precrop=args.precrop)
     parser.set_defaults(func=run)
 
 
