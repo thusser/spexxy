@@ -1,3 +1,4 @@
+import copy
 import math
 import os
 from enum import Enum
@@ -904,7 +905,23 @@ class Spectrum(object):
         Returns:
             Copy of this spectrum.
         """
-        return self.__class__(spec=self, copy_flux=copy_flux)
+        return copy.copy(self)
+
+    def __copy__(self):
+        """Create a shallow copy of this spectrum.
+
+        Returns:
+            Copy of this spectrum.
+        """
+        return self.__class__(spec=self, copy_flux=False)
+
+    def __deepcopy__(self, memodict={}):
+        """Create a deep copy of this spectrum.
+
+        Returns:
+            Copy of this spectrum.
+        """
+        return self.__class__(spec=self, copy_flux=True)
 
     @staticmethod
     def load(filename: str):
