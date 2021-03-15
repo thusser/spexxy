@@ -1,3 +1,5 @@
+import copy
+
 import numpy as np
 from typing import List, Tuple
 
@@ -128,7 +130,7 @@ class SplineInterpolator(Interpolator):
 
         # caching?
         if self.cache_level >= len(self._axes) - axis and params in self.cache:
-            return self.cache[params]
+            return copy.deepcopy(self.cache[params])
 
         # check boundaries
         if params[axis] < self._axes[axis].min or params[axis] > self._axes[axis].max:
@@ -234,7 +236,7 @@ class SplineInterpolator(Interpolator):
 
         # caching?
         if self.cache_level >= len(self._axes) - axis:
-            self.cache[params] = ip
+            self.cache[params] = copy.deepcopy(ip)
 
         # finished
         return ip
