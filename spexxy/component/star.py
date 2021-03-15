@@ -15,7 +15,7 @@ class StarComponent(SpectrumComponent):
         name : str
             Name of new component
         """
-        SpectrumComponent.__init__(self, name, self._model_func, *args, **kwargs)
+        SpectrumComponent.__init__(self, name, *args, **kwargs)
 
         # load or copy spectrum?
         if isinstance(spec, Spectrum):
