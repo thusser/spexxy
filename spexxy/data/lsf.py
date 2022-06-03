@@ -489,7 +489,7 @@ class EmpiricalLSF(LSF):
         npix = int(self.data.shape[1] / 2.)
 
         # LSF at multiple wavelengths?
-        if self.crval1 > 0:
+        if self.crval2 > 0:
             # array for new flux
             new_flux = np.empty((len(spec.wave)))
 
