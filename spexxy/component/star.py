@@ -19,7 +19,7 @@ class StarComponent(SpectrumComponent):
 
         # load or copy spectrum?
         if isinstance(spec, Spectrum):
-            self._spectrum = spec.copy()
+            self._spectrum = spec.copy(copy_flux=True)
         elif isinstance(spec, str):
             self._spectrum = Spectrum.load(spec)
         else:

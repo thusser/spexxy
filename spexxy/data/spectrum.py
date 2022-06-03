@@ -905,7 +905,7 @@ class Spectrum(object):
         Returns:
             Copy of this spectrum.
         """
-        return copy.copy(self)
+        return copy.deepcopy(self) if copy_flux else copy.copy(self)
 
     def __copy__(self):
         """Create a shallow copy of this spectrum.
