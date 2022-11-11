@@ -15,7 +15,7 @@ class GridComponent(SpectrumComponent):
         name : str
             Name of the component
         """
-        SpectrumComponent.__init__(self, name, self._model_func, *args, **kwargs)
+        SpectrumComponent.__init__(self, name, *args, **kwargs)
         self.log.info('Initializing grid component "%s"...', name)
 
         # get interpolator

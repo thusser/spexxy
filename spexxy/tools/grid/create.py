@@ -7,7 +7,7 @@ log = logging.getLogger(__name__)
 
 def add_parser(subparsers):
     # init parser
-    parser = subparsers.add_parser('create', help='Create a new DataBase grid',
+    parser = subparsers.add_parser('create', help='Create a new files grid',
                                    formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('root', type=str, help='Path to create grid from', default='.')
     parser.add_argument('-o', '--output', type=str, help='Output database file', default='grid.csv')

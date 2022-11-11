@@ -1,5 +1,11 @@
 ## Changelog
 
+### v2.6
+* Added new FitsGrid, which stores all spectra in a single FITS file.
+* Added convert methods for new grid.
+* Added SubGrid and SubInterpolator, which both expose parts of a parent grid/interpolator.
+* Added caching for interpolators.
+
 ### v2.5 (2020-07-14)
 * Split MainRoutine into MainRoutine and FilesRoutine, allowing for routines that don't run on files.
 * Added a SynspecGrid which can synthesize spectra using Synspec

@@ -2,10 +2,13 @@ import glob
 import logging
 import multiprocessing
 import os
+import time
+import gc
 import pandas as pd
+from spexxy.interpolator import Interpolator
 
 from .main import MainRoutine, FilesRoutine
-from .object import spexxyObject, create_object
+from .object import create_object
 from .utils.log import setup_log, shutdown_log
 
 
@@ -128,6 +131,9 @@ class Application(object):
         logging.getLogger('spexxy.main').error('Something went wrong.', exc_info=exception)
 
     def _run_single(self, idx, filename):
+        # start time
+        start_time = time.time()
+
         # main logger
         main_log = logging.getLogger('spexxy.main')
 
@@ -153,6 +159,8 @@ class Application(object):
 
         # init components
         log.info('Setting initial values...')
+        if 'components' not in objects or objects['components'] is None:
+            objects['components'] = {}
         for name, cmp in objects['components'].items():
             cmp.init(filename)
 
@@ -178,9 +186,26 @@ class Application(object):
                 # write line break
                 f.write('\n')
 
+        # clear cache in all interpolators
+        if 'interpolators' in objects:
+            log.info('Clearing all interpolator caches...')
+            cleared_caches = 0
+            for o in objects['interpolators'].values():
+                if isinstance(o, Interpolator):
+                    o.clear_cache()
+                    cleared_caches += 1
+            log.info('Cleared %d cache(s).', cleared_caches)
+
+        # clean up
+        log.info('Cleaning up objects...')
+        for group, elements in objects.items():
+            elements.clear()
+        main = None
+        gc.collect()
+
         # shutdown logger
         main_log.info('(%i/%i) Finished file %s...', idx, self._total, filename)
-        log.info('Finished fit.')
+        log.info('Finished fit in %.2f seconds.', time.time() - start_time)
         shutdown_log('spexxy.fit')
 
     def _create_objects(self, log=None):

@@ -75,13 +75,30 @@ This spexxytools call will produce an output CSV file that might look like this:
 fillholes
 ---------
 The :doc:`Interpolators <interpolators>` in *spexxy* work best on grids with a convex shape without any holes.
-With `spexxytools grid create` there is a tool for filling holes in a grid using a cubic spline interpolator::
+With `spexxytools grid fillholes` there is a tool for filling holes in a grid using a cubic spline interpolator::
 
-    usage: spexxytools grid fillholes [-h] grid output
+    usage: spexxytools grid fillholes [-h] grid holes output
 
     positional arguments:
       grid        Name of grid CSV
+      holes       Name of holes CSV
       output      Directory to store interpolated spectra in
+
+    optional arguments:
+      -h, --help  show this help message and exit
+
+The CSV file containing a list of holes can be created using `spexxytools grid findholes`.
+
+
+findholes
+---------
+Finds holes in a grid that make in non-convex::
+
+    usage: spexxytools grid findholes [-h] grid output
+
+    positional arguments:
+      grid        Name of grid CSV
+      output      Output file with holes
 
     optional arguments:
       -h, --help  show this help message and exit

@@ -1,6 +1,4 @@
-import os
 import numpy as np
-import pytest
 from astropy.io import fits
 
 from ..testdata import data_filename

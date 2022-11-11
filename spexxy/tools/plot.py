@@ -1,7 +1,15 @@
+import glob
+from itertools import cycle
+
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib import gridspec
 import numpy as np
+
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from spexxy.data import Spectrum
 
 from spexxy.data import FitsSpectrum
 
@@ -10,17 +18,88 @@ def add_parser(subparsers):
     # add parser
     parser = subparsers.add_parser('plot', help='Plot one or more spectrum')
     parser.add_argument('spectra', type=str, help='Spectrum to plot', nargs='+')
-    parser.add_argument('-o', '--output', help='Save plot to PDF file', type=str)
+    parser.add_argument('-o', '--output', help='Save plot to file', type=str)
     parser.add_argument('-r', '--results', help='Include results', action='store_true')
+    parser.add_argument('-s', '--single', help='Plot all spectra into single plot', action='store_true')
     parser.add_argument('--range', type=float, nargs=2, help='Wavelength range to plot')
+    parser.add_argument('--mode', type=str, choices=['wave', 'log'], help='Force wavelength mode for plot')
+    parser.add_argument('--cmap', type=str, help='Color map to use for color cycle')
+    parser.add_argument('--norm-to-mean', action='store_true', help='Normalize spectra to mean')
 
     # argparse wrapper for plot
     def run(args):
-        plot(**vars(args))
+        # args to dict
+        p = vars(args)
+
+        # glob spectra
+        spectra = []
+        for s in p['spectra']:
+            if '*' in s or '?' in s:
+                spectra.extend(glob.glob(s))
+            else:
+                spectra.append(s)
+        p['spectra'] = spectra
+
+        # call method
+        if args.single:
+            plot_single(**p)
+        else:
+            plot(**p)
     parser.set_defaults(func=run)
 
 
-def plot(spectra: list, output: str = None, results: bool = False, range: list = None, **kwargs):
+def plot_single(spectra: list, mode: str = None, cmap: str = None, norm_to_mean: bool = False, **kwargs):
+    from spexxy.data import Spectrum
+
+    # create plot
+    fig, ax = plt.subplots(figsize=(11.69, 8.27))
+
+    # define color cycle
+    if cmap is None:
+        # take default color cycle
+        gen = cycle(plt.rcParams['axes.prop_cycle'].by_key()['color'])
+        # and repeat it to get N entries
+        colors = [next(gen) for i in range(len(spectra))]
+    else:
+        # create new color cycle from cmap
+        cmap = mpl.cm.get_cmap(cmap)
+        colors = cmap(np.linspace(0.1, 0.9, len(spectra)))
+
+    # loop spectra
+    for i, filename in enumerate(sorted(spectra)):
+        # load spectrum
+        with FitsSpectrum(filename) as fs:
+            # get spectrum
+            spec = fs.spectrum
+
+            # norm?
+            if norm_to_mean:
+                spec.norm_to_mean()
+
+            # force mode?
+            if mode:
+                if mode == 'wave':
+                    spec.mode(Spectrum.Mode.LAMBDA)
+                else:
+                    spec.mode(Spectrum.Mode.LOGLAMBDA)
+
+            # plot it
+            ax.plot(spec.wave, spec.flux, ls="-", lw=1., c=colors[i], marker="None", label=filename)
+
+    # wrap up
+    ax.set_xlabel(r"$\mathrm{Wavelength}\ \lambda\,[\mathrm{\AA}]$", fontsize=20)
+    ax.set_ylabel('Flux', fontsize=20)
+    ax.legend()
+    ax.minorticks_on()
+    ax.grid()
+    fig.tight_layout()
+    plt.show()
+
+
+def plot(spectra: list, output: str = None, results: bool = False, range: list = None, mode: str = None,
+         norm_to_mean: bool = False,**kwargs):
+    from spexxy.data import Spectrum
+
     # if spectra not a list, make it a list
     if not isinstance(spectra, list):
         spectra = [spectra]
@@ -43,6 +122,10 @@ def plot(spectra: list, output: str = None, results: bool = False, range: list =
             # get spectrum
             spec = fs['NORMALIZED'] if 'NORMALIZED' in fs and results else fs.spectrum
 
+            # norm?
+            if norm_to_mean:
+                spec.norm_to_mean()
+
             # and model
             model = fs.best_fit if results else None
 
@@ -51,6 +134,13 @@ def plot(spectra: list, output: str = None, results: bool = False, range: list =
 
             # good pixels
             valid = fs.good_pixels
+
+            # force mode?
+            if mode:
+                if mode == 'wave':
+                    spec.mode(Spectrum.Mode.LAMBDA)
+                else:
+                    spec.mode(Spectrum.Mode.LOGLAMBDA)
 
         # plot
         plot_spectrum(spec, model, residuals, valid, wave_range=range, title=fs.filename)
@@ -69,7 +159,7 @@ def plot(spectra: list, output: str = None, results: bool = False, range: list =
 
 def plot_spectrum(spec, model: 'Spectrum' = None, residuals: np.ndarray = None, valid: np.ndarray = None,
                   wave_range: list = None, text: str = None, text_width: float = 0.3, title: str = None):
-    # specify grid
+    # create plot
     fig = plt.figure(figsize=(11.69, 8.27))
     gs = gridspec.GridSpec(2, 1, figure=fig, height_ratios=[3, 1])
     gs.update(wspace=0., hspace=0., left=0.09, right=0.99, top=0.95, bottom=0.08)

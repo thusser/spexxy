@@ -9,21 +9,18 @@ from ..object import create_object
 class SpectrumComponent(Component):
     """SpectrumComponent is the base Component class for all components that deal with spectra."""
 
-    def __init__(self, name: str, model_func: Callable, losvd_hermite: bool = False, vac_to_air: bool = False,
+    def __init__(self, name: str, losvd_hermite: bool = False, vac_to_air: bool = False,
                  lsf: Union[LSF, str, dict] = None, *args, **kwargs):
         """Initializes a new SpectrumComponent.
 
         Args:
             name: Name of new component
-            model_func: Method that returns a spectrum for the given parameters,
-                        should be implemented by derived classes
             losvd_hermite: Whether or not Hermite polynomials should be used for the LOSVD
             vac_to_air: If True, vac_to_air() is called on spectra returned from the model_func
             lsf: LSF to apply to spectrum
         """
         Component.__init__(self, name, *args, **kwargs)
         self._vac_to_air = vac_to_air
-        self._model_func = model_func
         self._losvd_hermite = losvd_hermite
 
         # add losvd parameters
@@ -39,11 +36,15 @@ class SpectrumComponent(Component):
         if isinstance(lsf, LSF):
             self._lsf = lsf
         elif isinstance(lsf, str):
-            self._lsf = LSF.load(os.path.expandvars(lsf))
+            self._lsf = LSF.load(lsf)
         elif isinstance(lsf, dict):
             self._lsf = create_object(lsf)
         else:
             self._lsf = None
+
+    def _model_func(self):
+        """Return actual model."""
+        raise NotImplementedError
 
     def __call__(self, **kwargs):
         """Model function that creates a spectrum with the given parameters and shift/convolve it using the given LOSVD.

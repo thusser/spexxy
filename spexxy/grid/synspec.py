@@ -8,6 +8,7 @@ import os
 from .grid import Grid, GridAxis
 from ..data import Spectrum
 
+
 ABUND_AGSS = [
     (1, 'H', 12., 2),
     (2, 'He', 10.93, 2),
@@ -106,7 +107,7 @@ ABUND_AGSS = [
 
 FORT5_HEADER = """%.2f %.2f
  T  F              ! LTE,  LTGRAY
- 'nstf'            ! name of file containing non-standard flags
+ '%s'            ! name of file containing non-standard flags
 *
 * frequencies
 *
@@ -168,13 +169,13 @@ FORT5_FOOTER = """*
 """
 
 
-FORT55 = """10   52   0        ! imode idstd iprin
-0    0   0   1     ! inmod intrpl ichang ichemc
-0    0   0   0   0 ! iophli nunalp nunbet nungam nunbal
-1    0   0   0   0 ! ifreq inlte icontl inlist ifhe2
-1    0   0         ! ihydpr ihe1pr ihe2pr
-%4d  %4d 40  0  1.e-5 0.03 ! alam0 alast cutof0 cutofs relop space
-1  26              ! nmlist, (iunitm(i),i=1,nmlist) for molecular linelists
+FORT55 = """{imode:d}   {idsts:d}   {iprin:d}        ! imode idstd iprin
+{inmod:d}    {intrpl:d}   {ichang:d}   {ichemc:d}     ! inmod intrpl ichang ichemc
+{iophli:d}    {nunalp:d}   {nunbet:d}   {nungam:d}   {nunbal:d} ! iophli nunalp nunbet nungam nunbal
+{ifreq:d}    {inlte:d}   {icontl:d}   {inlist:d}   {ifhe2:d} ! ifreq inlte icontl inlist ifhe2
+{ihydpr:d}    {ihe1pr:d}   {ihe2pr}         ! ihydpr ihe1pr ihe2pr
+{alam0:d}  {alast:d} {cutof0:d}  {cutofs:d}  {relop:g} {space:f} ! alam0 alast cutof0 cutofs relop space
+1  20              ! nmlist, (iunitm(i),i=1,nmlist) for molecular linelists
 """
 
 
@@ -183,7 +184,13 @@ class SynspecGrid(Grid):
 
     def __init__(self, synspec: str, models: Grid, linelist: str, mollist: str, datadir: str,
                  range: Tuple[float, float], vturb: Union[str, float] = 2.0, elements: List[str] = None,
-                 *args, **kwargs):
+                 input: Union[str, Grid] = None, imode: int = 10, idstd: int = 0, iprin: int = 0, inmod: int = 0,
+                 intrpl: int = 0, ichang: int = 0, ichemc: int = 1, iophli: int = 0, nunalp: int = 0, nunbet: int = 0,
+                 nungam: int = 0, nunbal: int = 0, ifreq: int = 1, inlte: int = 0, icontl: int = 0, inlist: int = 0,
+                 ifhe2: int = 0, ihydpr: int = 1, ihe1pr: int = 0, ihe2pr: int = 0, cutof0: int = 40, cutofs: int = 0,
+                 relop: float = 1e-5, space: float = 0.03, normalize: bool = False, nstfile: str = 'nstf',
+                 nd: int = None, ifmol: int = 1, tmolim: float = None, ippick: int = None, ibfac: int = None,
+                 tempdir: str = None, solar_abund: Dict[str, float] = None, *args, **kwargs):
         """Constructs a new Grid.
 
         Args:
@@ -195,6 +202,41 @@ class SynspecGrid(Grid):
             range: Tuple of start/end wavelenghts
             vturb: Either the microturbulence or a CSV file containing a table
             elements: List of elements to add as new axis
+            input: Either the name of a fort.5 file or a Grid or None (in which case an automatic fort.5 will be used)
+            parameters: Use this fort.55 file instead of the automatically generated one
+            imode:
+            idstd:
+            iprin:
+            inmod:
+            intrpl:
+            ichang:
+            ichemc:
+            iophli:
+            nunalp:
+            nunbet:
+            nungam:
+            nunbal:
+            ifreq:
+            inlte:
+            icontl:
+            inlist:
+            ifhe2:
+            ihydpr:
+            ihe1pr:
+            ihe2pr:
+            cutof0:
+            cutofs:
+            relop:
+            space:
+            normalize: Normalize spectra
+            nstfile: Name of file with non-standard flags
+            nd:
+            ifmol:
+            tmolim:
+            ippick:
+            ibfac:
+            tempdir: Temporary directory. Won't be delete if given.
+            solar_abund: Dictionary with solar abundances to use.
         """
         from ..interpolator import Interpolator
         Grid.__init__(self, axes=None, *args, **kwargs)
@@ -206,6 +248,16 @@ class SynspecGrid(Grid):
         self._datadir = datadir
         self._elements = [] if elements is None else elements
         self._range = range
+        self._tempdir = tempdir
+        self._parameters = dict(imode=imode, idsts=idstd, iprin=iprin, inmod=inmod, intrpl=intrpl, ichang=ichang,
+                                ichemc=ichemc, iophli=iophli, nunalp=nunalp, nunbet=nunbet, nungam=nungam,
+                                nunbal=nunbal, ifreq=ifreq, inlte=inlte, icontl=icontl, inlist=inlist, ifhe2=ifhe2,
+                                ihydpr=ihydpr, ihe1pr=ihe1pr, ihe2pr=ihe2pr, alam0=range[0], alast=range[1],
+                                cutof0=cutof0, cutofs=cutofs, relop=relop, space=space)
+        self._normalize = normalize
+        self._nstfile = nstfile
+        self._nstf = dict(nd=nd, ifmol=ifmol, tmolim=tmolim, ippick=ippick, ibfac=ibfac)
+        self._solar_abund = {} if solar_abund is None else solar_abund
 
         # load grid
         self._models: Grid = self.get_objects(models, [Grid, Interpolator], 'grids', self.log, single=True)
@@ -221,6 +273,18 @@ class SynspecGrid(Grid):
         elif isinstance(vturb, str):
             filename = os.path.expandvars(vturb)
             self._vturb = pd.read_csv(filename, index_col=['Teff', 'logg', '[M/H]', '[alpha/M]'], dtype=float)
+
+        # input/fort.5
+        self._input = None
+        if input is not None:
+            # first check, whether this is a file
+            if isinstance(input, str) and os.path.exists(input):
+                # okay, take this
+                self._input = input
+
+            else:
+                # try to create grid
+                self._input: Grid = self.get_objects(input, [Grid, Interpolator], 'grids', self.log, single=True)
 
     def all(self) -> List[Tuple]:
         """Return all possible parameter combinations.
@@ -294,11 +358,11 @@ class SynspecGrid(Grid):
         # find element in models grid
         mod = self._models.filename(params[:4])
 
-        # temp directory
-        tmp = os.path.abspath(mkdtemp())
-
-        # change path
+        # remember path
         cwd = os.getcwd()
+
+        # go to temp directory
+        tmp = self._tempdir if self._tempdir is not None else os.path.abspath(mkdtemp())
         os.chdir(tmp)
 
         # make sure to delete temp directory in the end
@@ -308,16 +372,16 @@ class SynspecGrid(Grid):
             self._write_nstf(teff, logg, feh, alpha)
 
             # write config
-            self._write_fort55(*self._range)
+            self._write_fort55()
 
             # write element changes
-            self._write_fort56(changes)
+            self._write_fort56(changes, feh)
 
             # create symlinks
             os.symlink(os.path.expandvars(self._synspec), 'synspec')
             os.symlink(mod, 'fort.8')
             os.symlink(os.path.expandvars(self._linelist), 'fort.19')
-            os.symlink(os.path.expandvars(self._mollist), 'fort.26')
+            os.symlink(os.path.expandvars(self._mollist), 'fort.20')
             os.symlink(os.path.expandvars(self._datadir), 'data')
 
             # run synspec
@@ -325,42 +389,64 @@ class SynspecGrid(Grid):
 
             # read output
             d = pd.read_csv('fort.7', delim_whitespace=True, names=['wave', 'flux'])
-
-            # return spec
             spec = Spectrum(wave=d['wave'], flux=d['flux']).resample_const(step=0.02)
+
+            # normalize?
+            if self._normalize:
+                # read continuum and create
+                c = pd.read_csv('fort.17', delim_whitespace=True, names=['wave', 'flux'])
+                cont = Spectrum(wave=c['wave'], flux=c['flux']).resample(spec=spec)
+
+                # divide
+                spec.flux /= cont.flux
+
+            # return it
             return spec
 
         finally:
             # return to old directory and clean up
             os.chdir(cwd)
-            shutil.rmtree(tmp)
+            if self._tempdir is None:
+                shutil.rmtree(tmp)
 
     def _write_fort5(self, teff, logg, feh, alpha):
-        with open('fort.5', 'w') as f:
-            # write header
-            f.write(FORT5_HEADER % (teff, logg))
+        if self._input is not None:
+            # single file or grid?
+            if isinstance(self._input, str):
+                # copy file
+                shutil.copyfile(self._input, 'fort.5')
+            else:
+                # get from grid and copy
+                filename = self._input.filename((teff, logg, feh, alpha))
+                shutil.copyfile(filename, 'fort.5')
 
-            # write abundances
-            for no, el, abund, mode in ABUND_AGSS:
-                # calculate abundance
-                if no == 0:
-                    # H
-                    a = 0
-                elif no == 1:
-                    # He
-                    a = 10.**(abund - 12) if mode > 0 else 0.
-                elif no in [8, 10, 12, 14, 16, 18, 20, 22]:
-                    # alpha elements
-                    a = 10. ** (abund - 12 + feh + alpha) if mode > 0 else 0.
-                else:
-                    # other
-                    a = 10. ** (abund - 12 + feh) if mode > 0 else 0.
+        else:
+            # write automatically generated file
+            with open('fort.5', 'w') as f:
+                # write header
+                f.write(FORT5_HEADER % (teff, logg, self._nstfile))
 
-                # write it
-                f.write('%d %.3g 0 !%s\n' % (mode, a, el))
+                # write abundances
+                for no, el, abund, mode in ABUND_AGSS:
+                    # calculate abundance
+                    if mode == 0 or no == 0:
+                        # H
+                        a = 0
+                    elif no == 1:
+                        # He
+                        a = 10.**(abund - 12)
+                    elif no in [8, 10, 12, 14, 16, 18, 20, 22]:
+                        # alpha elements
+                        a = 10. ** (abund - 12 + feh + alpha)
+                    else:
+                        # other
+                        a = 10. ** (abund - 12 + feh)
 
-            # write footer
-            f.write(FORT5_FOOTER)
+                    # write it
+                    f.write('%d %.3g 0 !%s\n' % (mode, a, el))
+
+                # write footer
+                f.write(FORT5_FOOTER)
 
     def _write_nstf(self, teff, logg, feh, alpha_m):
         """Write file with non-standard flags."""
@@ -374,14 +460,24 @@ class SynspecGrid(Grid):
             return
 
         # write file
-        with open('nstf', 'w') as f:
-            f.write('ND=64,VTB=%.2f, IFMOL=1' % vturb)
+        with open(self._nstfile, 'w') as f:
+            # write vturb
+            f.write('VTB=%.2f\n' % vturb)
+            # write parameters from constructor
+            for key, val in self._nstf.items():
+                # only write non-None values
+                if val is not None:
+                    f.write('%s=%s\n' % (key.upper(), str(val)))
 
-    def _write_fort55(self, wstart, wend):
+    def _write_fort55(self):
+        """Writes the fort.55 file."""
+
+        # open file
         with open('fort.55', 'w') as f:
-            f.write(FORT55 % (wstart, wend))
+            # write config
+            f.write(FORT55.format(**self._parameters))
 
-    def _write_fort56(self, abunds: Dict[str, float]):
+    def _write_fort56(self, abunds: Dict[str, float], feh: float):
         """Write fort.56 file.
 
         To create the fort.56 that contains the updated abundance (abund_up) for the element wanted
@@ -399,13 +495,32 @@ class SynspecGrid(Grid):
 
             # write changes
             for user_el, user_abund in abunds.items():
+                element_abundance = None
+                element_number = None
+
+                # given by user?
+                if user_el in self._solar_abund:
+                    # using value provided in c'tor
+                    element_abundance = self._solar_abund[user_el]
+
                 # find el in AGSS
                 for no, el, abund, _ in ABUND_AGSS:
                     if el == user_el:
-                        f.write('%d %.3g\n' % (no, 10. ** (abund - 12 + user_abund)))
+                        # need to set abundance?
+                        if element_abundance is None:
+                            element_abundance = abund
+
+                        # element number
+                        element_number = no
+
+                        # found it, break here
                         break
                 else:
                     raise ValueError('Element %s not found.' % user_el)
+
+                # calculate abundance and write it
+                a = 10. ** (element_abundance - 12 + user_abund + (feh if element_number > 1 else 0))
+                f.write('%d %.3g\n' % (element_number, a))
 
 
 __all__ = ['SynspecGrid']

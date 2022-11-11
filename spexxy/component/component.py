@@ -147,6 +147,16 @@ class Component(spexxyObject):
                 param['min'] = 0
                 param['max'] = 1
 
+            # got vary parameter?
+            if 'vary' in param:
+                # parse it to bool
+                param['vary'] = bool(param['vary'])
+
+                # if it's False, set min/max to +-inf to avoid "min == max" errors
+                if not param['vary']:
+                    param['min'] = -np.inf
+                    param['max'] = np.inf
+
             # add it to params
             params.add(self.prefix + name, **param)
 

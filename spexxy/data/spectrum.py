@@ -1,3 +1,4 @@
+import copy
 import math
 import os
 from enum import Enum
@@ -24,6 +25,7 @@ class Spectrum(object):
         """Spectrum wavelength mode."""
         LAMBDA = 0
         LOGLAMBDA = 1
+        LOG10LAMBDA = 2
 
     def __init__(self, spec: 'Spectrum' = None, copy_flux: bool = True, wave: np.ndarray = None,
                  wave_start: float = None, wave_count: int = None, wave_step: float = None, wave_end: float = None,
@@ -427,7 +429,7 @@ class Spectrum(object):
 
         # nothing to do?
         if step == 0 and self._wave_step > 0:
-            return
+            return self.copy(copy_flux=True)
 
         # filter wavelength array for NaNs
         w = np.sort(self.wave)
@@ -630,15 +632,28 @@ class Spectrum(object):
             m: New mode of spectrum.
         """
 
-        # nothing to do?
-        if m == self._wave_mode:
-            return
-
         # convert
-        if m == Spectrum.Mode.LAMBDA:
-            self._wavelength = np.exp(self.wave)
-        else:
+        if self._wave_mode == Spectrum.Mode.LAMBDA and m == Spectrum.Mode.LOGLAMBDA:
+            # LAMBDA to LOG
             self._wavelength = np.log(self.wave)
+        elif self._wave_mode == Spectrum.Mode.LAMBDA and m == Spectrum.Mode.LOG10LAMBDA:
+            # LAMBDA to LOG10
+            self._wavelength = np.log10(self.wave)
+        elif self._wave_mode == Spectrum.Mode.LOGLAMBDA and m == Spectrum.Mode.LAMBDA:
+            # LOG to LAMBDA
+            self._wavelength = np.exp(self.wave)
+        elif self._wave_mode == Spectrum.Mode.LOGLAMBDA and m == Spectrum.Mode.LOG10LAMBDA:
+            # LOG to LOG10
+            self._wavelength = np.log10(np.exp(self.wave))
+        elif self._wave_mode == Spectrum.Mode.LOG10LAMBDA and m == Spectrum.Mode.LAMBDA:
+            # LOG10 to LAMBDA
+            self._wavelength = np.power(10., self.wave)
+        elif self._wave_mode == Spectrum.Mode.LOG10LAMBDA and m == Spectrum.Mode.LOGLAMBDA:
+            # LOG10 to LOG
+            self._wavelength = np.log(np.power(10., self.wave))
+        else:
+            # do nothing
+            return
 
         # set values
         self._wave_start = self._wavelength[0]
@@ -890,7 +905,23 @@ class Spectrum(object):
         Returns:
             Copy of this spectrum.
         """
-        return self.__class__(spec=self, copy_flux=copy_flux)
+        return copy.deepcopy(self) if copy_flux else copy.copy(self)
+
+    def __copy__(self):
+        """Create a shallow copy of this spectrum.
+
+        Returns:
+            Copy of this spectrum.
+        """
+        return self.__class__(spec=self, copy_flux=False)
+
+    def __deepcopy__(self, memodict={}):
+        """Create a deep copy of this spectrum.
+
+        Returns:
+            Copy of this spectrum.
+        """
+        return self.__class__(spec=self, copy_flux=True)
 
     @staticmethod
     def load(filename: str):
@@ -902,6 +933,9 @@ class Spectrum(object):
         Returns:
             Loaded spectrum.
         """
+
+        # expand vars on filename
+        filename = os.path.expandvars(filename)
 
         # is it a FITS file?
         if filename.endswith(".fit") or filename.endswith(".FIT") or \
@@ -915,13 +949,8 @@ class Spectrum(object):
 
             # WAVE keyword?
             if "WAVE" in hdr.keys():
-                # does it reference a HDU?
-                if hdr['WAVE'] in f:
-                    # normal fits spectrum with WAVE extension
-                    return SpectrumFits(filename)
-                else:
-                    # HiRes spectrum with wavelength in extra file
-                    return SpectrumHiResFITS(filename)
+                # normal fits spectrum with WAVE extension
+                return SpectrumFits(filename)
 
             elif hdr["NAXIS"] == 0:
                 # no axis given? bin tabke!
@@ -945,7 +974,7 @@ class SpectrumFitsHDU(Spectrum):
     This class allows to load a spectrum from a FITS HDU and save it into one.
     """
 
-    def __init__(self, hdu=None, hdu_list=None, primary=True, dtype=np.float32, *args, **kwargs):
+    def __init__(self, hdu=None, hdu_list=None, primary=True, dtype=np.float32, filename: str = None, *args, **kwargs):
         """Initialize a new Spectrum from a FITS HDU
 
         Args:
@@ -953,6 +982,7 @@ class SpectrumFitsHDU(Spectrum):
             hdu_list: Probably necessary for loading wavelength array.
             primary: Whether the HDU should be a primary HDU. If HDU is given, this is ignored and derived automatically.
             dtype: Data type of array.
+            filename: Name of file this HDU is in.
         """
         Spectrum.__init__(self, *args, **kwargs)
 
@@ -961,7 +991,7 @@ class SpectrumFitsHDU(Spectrum):
             # init from given spec
             spec = kwargs['spec']
             self._primary = primary
-            self._hdu = spec._hdu.copy() if hdu is None else hdu
+            self._hdu = spec._hdu.copy() if hdu is None and spec._hdu is not None else hdu
             self._dtype = spec._dtype if dtype is None else dtype
 
         else:
@@ -983,13 +1013,33 @@ class SpectrumFitsHDU(Spectrum):
 
                 # do we have an extra HDU for wavelength array?
                 if 'WAVE' in hdr:
-                    # yes, check hdu_list
-                    if hdu_list is None:
-                        raise ValueError('No HDU list given for loading '
-                                         'wavelength array.')
+                    # is there a HDU with this name?
+                    if hdu_list is not None and hdr['WAVE'] in hdu_list:
+                        # no file, must be HDU, check hdu_list
+                        if hdu_list is None:
+                            raise ValueError('No HDU list given for loading '
+                                             'wavelength array.')
 
-                    # get HDU and data
-                    wave_hdu = hdu_list[hdr['WAVE']]
+                        # get HDU and data
+                        wave_hdu = hdu_list[hdr['WAVE']]
+
+                    else:
+                        # try to buld filename
+                        wave_filename = os.path.join(os.path.dirname(filename), hdr['WAVE'])
+
+                        # is it a file?
+                        if os.path.exists(wave_filename):
+                            # load from file
+                            f = fits.open(wave_filename, memmap=False)
+                            wave_hdu = f[0]
+                            tmp = wave_hdu.data
+                            f.close()
+
+                        else:
+                            # something else
+                            raise ValueError('Could not load wavelength array')
+
+                    # set data
                     self._wavelength = wave_hdu.data
                     self._wave_start = self._wavelength[0]
                     self._wave_step = 0
@@ -1136,10 +1186,14 @@ class SpectrumFits(SpectrumFitsHDU):
         # load it
         if filename:
             f = fits.open(filename, memmap=False)
-            SpectrumFitsHDU.__init__(self, hdu=f[extension], hdu_list=f, *args, **kwargs)
+            SpectrumFitsHDU.__init__(self, hdu=f[extension], hdu_list=f, filename=filename, *args, **kwargs)
             f.close()
         else:
             SpectrumFitsHDU.__init__(self, *args, **kwargs)
+
+    @property
+    def filename(self):
+        return self._filename
 
     def save(self, filename: str = None, headers: dict = None):
         """Save spectrum to FITS file
@@ -1175,7 +1229,7 @@ class SpectrumFits(SpectrumFitsHDU):
 class SpectrumHiResFITS(Spectrum):
     """Handles HiRes spectra from the PHOENIX library."""
 
-    def __init__(self, filename: str, *args, **kwargs):
+    def __init__(self, filename: str = None, *args, **kwargs):
         """Loads a HiRes spectrum from file.
 
         Args:
@@ -1183,31 +1237,33 @@ class SpectrumHiResFITS(Spectrum):
         """
         Spectrum.__init__(self, *args, **kwargs)
 
-        # get flux
-        self.flux = fits.getdata(filename, 0)
-        if len(self.flux) == 1 and len(self.flux[0]) > 1:
-            self.flux = self.flux[0]
+        # file given?
+        if filename is not None:
+            # get flux
+            self.flux = fits.getdata(filename, 0)
+            if len(self.flux) == 1 and len(self.flux[0]) > 1:
+                self.flux = self.flux[0]
 
-        # get header
-        hdr = fits.getheader(filename, 0)
+            # get header
+            hdr = fits.getheader(filename, 0)
 
-        # get path of filename
-        path = os.path.dirname(filename)
+            # get path of filename
+            path = os.path.dirname(filename)
 
-        # get filename of wavelength file
-        wave_file = path + ('/' if len(path) > 0 else "") + hdr["WAVE"]
+            # get filename of wavelength file
+            wave_file = path + ('/' if len(path) > 0 else "") + hdr["WAVE"]
 
-        # get wavelength array
-        self._wave_step = 0.
-        self._wavelength = fits.getdata(wave_file)
-        if "CTYPE1" in hdr.keys() and \
-                (hdr["CTYPE1"] == "WAVE-LOG" or hdr["CTYPE1"] == "AWAV-LOG"):
-            self._wave_mode = Spectrum.Mode.LOGLAMBDA
-        else:
-            self._wave_mode = Spectrum.Mode.LAMBDA
+            # get wavelength array
+            self._wave_step = 0.
+            self._wavelength = fits.getdata(wave_file)
+            if "CTYPE1" in hdr.keys() and \
+                    (hdr["CTYPE1"] == "WAVE-LOG" or hdr["CTYPE1"] == "AWAV-LOG"):
+                self._wave_mode = Spectrum.Mode.LOGLAMBDA
+            else:
+                self._wave_mode = Spectrum.Mode.LAMBDA
 
-        # is it valid?
-        self._valid = np.zeros(self.flux.shape, dtype=np.bool)
+            # is it valid?
+            self._valid = np.zeros(self.flux.shape, dtype=np.bool)
 
 
 class SpectrumBinTableFITS(Spectrum):
@@ -1282,8 +1338,8 @@ class SpectrumBinTableFITS(Spectrum):
 class SpectrumAscii(Spectrum):
     """Handles spectra stored in ASCII files."""
 
-    def __init__(self, filename: str = None, separator: str = None, skip_lines: int = 0, comment: str = '#',
-                 wave_column: int = 0, flux_column: int = 1, *args, **kwargs):
+    def __init__(self, filename: str = None, separator: str = ',', skip_lines: int = 0, comment: str = '#',
+                 wave_column: int = 0, flux_column: int = 1, header: bool = True, *args, **kwargs):
         """Reads spectrum from ASCII file.
 
         Args:
@@ -1291,12 +1347,14 @@ class SpectrumAscii(Spectrum):
             separator: Separator in file.
             skip_lines: Number of lines to skip while reading file.
             comment: Character indicating a comment line.
+            header: Whether to write a header.
         """
         Spectrum.__init__(self, *args, **kwargs)
 
         # store
         self._filename = filename
         self._separator = separator
+        self._header = header
 
         # load
         if filename:
@@ -1341,6 +1399,11 @@ class SpectrumAscii(Spectrum):
 
         # save it
         with open(filename, 'w') as f:
+            # write header?
+            if self._header:
+                f.write('wavelength,flux\n')
+
+            # write flux
             wave = self.wave
             for i in range(len(self.flux)):
                 f.write("{0:f}{1:s}{2:f}\n".format(wave[i], self._separator, self.flux[i]))

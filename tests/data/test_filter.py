@@ -1,8 +1,7 @@
-import os
 import numpy as np
 
 from ..testdata import data_filename
-from spexxy.data import Filter, Spectrum
+from spexxy.data import Filter, Spectrum, SpectrumAscii
 
 
 class TestFilter(object):
@@ -10,10 +9,11 @@ class TestFilter(object):
         """Test loading a filter."""
 
         # load it via Filter
+        print(data_filename('filters'))
         f = Filter('V', path=data_filename('filters'))
 
         # load it as Spectrum
-        s = Spectrum.load(data_filename('filters/V.txt'))
+        s = SpectrumAscii(data_filename('filters/V.txt'), separator=None)
 
         # should be identical
         assert np.array_equal(f.wave, s.wave)

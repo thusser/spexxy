@@ -1,3 +1,5 @@
+import copy
+
 import numpy as np
 from typing import List, Tuple
 
@@ -6,10 +8,62 @@ from ..grid import Grid, GridAxis
 from ..data import Spectrum
 
 
+def calc_2nd_derivs_spline(x: list, y: list, yp1=np.inf, ypn=np.inf):
+    """Calculates the 2nd derivatives for a spline.
+    Python conversion from the C++ code in chapter "Cubic Spline Interpolation" in the
+    "Numerical Recipes in C++, 2nd Edition".
+
+    Args:
+        x: Input x values.
+        y: Input y values.
+        yp1: First derivative at point 0. If set to np.inf, use natural boundary condition and set 2nd deriv to 0.
+        ypn: First derivative at point n-1. np.inf means the same as for yp1.
+
+    Returns:
+        Second derivates for all points given by x and y.
+    """
+
+    # get number of elements
+    n = len(x)
+
+    # create arrays for u and 2nd derivs
+    if hasattr(y[0], '__iter__'):
+        y2 = np.zeros((n, len(y[0])))
+        u = np.zeros((n, len(y[0])))
+    else:
+        y2 = np.zeros((n))
+        u = np.zeros((n))
+
+    # derivatives for point 0 given?
+    if not np.isinf(yp1):
+        y2[0] += -0.5
+        u[0] += (3. / (x[1] - x[0])) * ((y[1] - y[0]) / (x[1] - x[0]) - yp1)
+
+    # decomposition loop of the tridiagonal algorithm
+    for i in range(1, n - 1):
+        sig = (x[i] - x[i - 1]) / (x[i + 1] - x[i - 1])
+        p = sig * y2[i - 1] + 2.0
+        y2[i] = (sig - 1.0) / p
+        u[i] = (y[i + 1] - y[i]) / (x[i + 1] - x[i]) - (y[i] - y[i - 1]) / (x[i] - x[i - 1])
+        u[i] = (6.0 * u[i] / (x[i + 1] - x[i - 1]) - sig * u[i - 1]) / p
+
+    # derivatives for point n-1 given?
+    if not np.isinf(ypn):
+        qn = 0.5
+        un = (3. / (x[n - 1] - x[n - 2])) * (ypn - (y[n - 1] - y[n - 2]) / (x[n - 1] - x[n - 2]))
+        y2[n - 1] += (un - qn * u[n - 2]) / (qn * y2[n - 2] + 1.)
+
+    # backsubstitution loop of the tridiagonal algorithm
+    for k in range(n - 2, 0, -1):
+        y2[k] = y2[k] * y2[k + 1] + u[k]
+
+    # finished
+    return y2
+
+
 class SplineInterpolator(Interpolator):
     """A cubic spline interpolator that operates on a given grid."""
-
-    def __init__(self, grid: Grid, derivs: Grid = None, n=1, *args, **kwargs):
+    def __init__(self, grid: Grid, derivs: Grid = None, n: int = 1, verbose: bool = False, *args, **kwargs):
         """Initializes a new linear interpolator.
 
         Args:
@@ -17,17 +71,19 @@ class SplineInterpolator(Interpolator):
             derivs: If given, contains a second grid at the same parameters as grid, but containg 2nd derivatives for
                 the first axis of the grid.
             n: Number of points on each side to use for calculating derivatives.
+            verbose: If True, output some more logs
         """
         Interpolator.__init__(self, *args, **kwargs)
 
         # grids
         self.log.info('Initializing spline interpolator...')
-        self._grid = self.get_objects(grid, Grid, 'grids', single=True)
-        self._derivs = self.get_objects(derivs, Grid, 'grids', single=True)
+        self._grid: Grid = self.get_objects(grid, Grid, 'grids', single=True)
+        self._derivs: Grid = self.get_objects(derivs, Grid, 'grids', single=True)
 
         # init
         self._axes = self._grid.axes()
         self._npoints = n
+        self._verbose = verbose
 
     @property
     def grid(self) -> Grid:
@@ -72,6 +128,10 @@ class SplineInterpolator(Interpolator):
         if axis is None:
             axis = len(self._axes) - 1
 
+        # caching?
+        if self.cache_level >= len(self._axes) - axis and params in self.cache:
+            return copy.deepcopy(self.cache[params])
+
         # check boundaries
         if params[axis] < self._axes[axis].min or params[axis] > self._axes[axis].max:
             raise KeyError('Requested parameters are outside the grid.')
@@ -81,10 +141,13 @@ class SplineInterpolator(Interpolator):
 
         # if params[axis] is on axis; return it directly
         if params[axis] in axisValues:
-            if axis == 0:
+            if axis == 0 and tuple(params) in self._grid:
+                # if this is the first axis AND params are in grid, return it
                 return self._grid(tuple(params))
-            else:
+            elif axis > 0:
+                # if it's another axis, interpolate
                 return self._interpolate(tuple(params), axis - 1)
+            # if it's neither, just continue
 
         # find the next lower and the next higher axis value
         # on the last axis we enforce that the neighbour must exist
@@ -130,78 +193,53 @@ class SplineInterpolator(Interpolator):
                 else:
                     # try to fetch additional data
                     try:
-                        p = self._grid.neighbour(tuple(params), axis, i)
-                        y.append(self._interpolate(p))
-                        x.append(p[axis])
+                        # find neighbour
+                        p = self._grid.neighbour(tuple(params), axis, i, must_exist=axis == 0)
+                        # found one?
+                        if p is not None:
+                            # in grid or do we need to interpolate?
+                            if p in self._grid:
+                                y.append(self._grid(p))
+                            else:
+                                y.append(self._interpolate(p))
+                            x.append(p[axis])
                     except KeyError:
                         pass
 
             # calculate 2nd derivatives
-            y2 = self._spline(x, y)
+            if self._verbose:
+                self.log.info('Creating 2nd derivates for axis %s with values %s.', self._grid.axis_name(axis), x)
+            y2 = calc_2nd_derivs_spline(x, y)
 
             # set them
             lower_deriv = y2[ilower]
             higher_deriv = y2[ilower + 1]
 
-        # calculate interpolation
-        A = (x_higher - params[axis]) / (x_higher - x_lower)
-        B = 1. - A
-        C = 1. / 6. * (A * A * A - A) * (x_higher - x_lower) * (x_higher - x_lower)
-        D = 1. / 6. * (B * B * B - B) * (x_higher - x_lower) * (x_higher - x_lower)
+        # log
+        if self._verbose:
+            self.log.info('Interpolate for axis %s at %.2f from neighbours at %.2f and %.2f.',
+                          self._grid.axis_name(axis), params[axis], x_lower, x_higher)
+            self.log.info('2nd derivation at 1st point is %.2g for next lower and %.2g for next higher neighbour.',
+                          lower_deriv[0], higher_deriv[1])
+
+        # calculate coefficients
+        h = (x_higher - x_lower)
+        A = (x_higher - params[axis]) / h
+        B = (params[axis] - x_lower) / h
+        C = (A**3 - A) * h**2 / 6.
+        D = (B**3 - B) * h**2 / 6.
+        if self._verbose:
+            self.log.info('A=%.2f, B=%.2f, C=%.2f, D=%.2f', A, B, C, D)
+
+        # interpolate
         ip = lower_data * A + higher_data * B + lower_deriv * C + higher_deriv * D
-        return ip
 
-    def _spline(self, x: np.ndarray, y: np.ndarray, yp1=np.inf, ypn=np.inf) -> np.ndarray:
-        """Calculates the 2nd derivatives for a spline.
-        Python conversion from the C++ code in chapter "Cubic Spline Interpolation" in the
-        "Numerical Recipes in C++, 2nd Edition".
-
-        Args:
-            x: Input x values.
-            y: Input y values.
-            yp1: First derivative at point 0. If set to np.inf, use natural boundary condition and set 2nd deriv to 0.
-            ypn: First derivative at point n-1. np.inf means the same as for yp1.
-
-        Returns:
-            Second derivates for all points given by x and y.
-        """
-
-        # get number of elements
-        n = len(x)
-
-        # create arrays for u and 2nd derivs
-        if hasattr(y[0], '__iter__'):
-            y2 = np.zeros((n, len(y[0])))
-            u = np.zeros((n, len(y[0])))
-        else:
-            y2 = np.zeros((n))
-            u = np.zeros((n))
-
-        # derivatives for point 0 given?
-        if not np.isinf(yp1):
-            y2[0] += -0.5
-            u[0] += (3. / (x[1] - x[0])) * ((y[1] - y[0]) / (x[1] - x[0]) - yp1)
-
-        # decomposition loop of the tridiagonal algorithm
-        for i in range(1, n-1):
-            sig = (x[i] - x[i - 1]) / (x[i + 1] - x[i - 1])
-            p = sig * y2[i - 1] + 2.0
-            y2[i] = (sig - 1.0) / p
-            u[i] = (y[i + 1] - y[i]) / (x[i + 1] - x[i]) - (y[i] - y[i - 1]) / (x[i] - x[i - 1])
-            u[i] = (6.0 * u[i] / (x[i + 1] - x[i - 1]) - sig * u[i - 1]) / p
-
-        # derivatives for point n-1 given?
-        if not np.isinf(ypn):
-            qn = 0.5
-            un = (3. / (x[n-1] - x[n-2])) * (ypn - (y[n-1] - y[n-2]) / (x[n-1] - x[n-2]))
-            y2[n-1] += (un - qn * u[n-2]) / (qn * y2[n-2] + 1.)
-
-        # backsubstitution loop of the tridiagonal algorithm
-        for k in range(n-2, 0, -1):
-            y2[k] = y2[k] * y2[k + 1] + u[k]
+        # caching?
+        if self.cache_level >= len(self._axes) - axis:
+            self.cache[params] = copy.deepcopy(ip)
 
         # finished
-        return y2
+        return ip
 
 
-__all__ = ['SplineInterpolator']
+__all__ = ['SplineInterpolator', 'calc_2nd_derivs_spline']

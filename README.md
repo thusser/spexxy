@@ -9,10 +9,8 @@ ___ _ __   _____  ____  ___   _
     |_| fitting framework  |___/ 
 ```
 
-<p align="center">
-<img src="https://img.shields.io/travis/com/thusser/spexxy.svg?label=master%20build&style=flat" alt="master build status">
-<img src="https://img.shields.io/travis/com/thusser/spexxy/develop.svg?label=develop%20build&style=flat" alt="develop build status">
-</p>
+
+![develop build](https://github.com/thusser/spexxy/workflows/pytest/badge.svg)
 
 *spexxy* is a framework for the analysis of astronomical spectra. It provides both two executables
 that wrap the framework using a YAML configuration file and provide some additional command line
@@ -29,6 +27,9 @@ You can find the documentation for spexxy at <https://spexxy.readthedocs.io/>.
 
 ### Versions
 See [Changelog](CHANGELOG.md).
+* v2.5 (2020-07-14)
+* v2.4.1 (2020-06-19)
+* v2.4 (2020-06-10)
 * v2.3 (2019-11-15)
 * v2.2 (2019-02-04)
 * v2.1 (2018-11-26)

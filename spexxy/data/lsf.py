@@ -58,6 +58,9 @@ class LSF(object):
             The LSF object.
         """
 
+        # expand vars on filename
+        filename = os.path.expandvars(filename)
+
         # if it's a FITS file, we assume it to be an empirical LSF
         if filename.upper().endswith('.FIT') or filename.upper().endswith('.FITS'):
             return EmpiricalLSF(filename)
@@ -486,7 +489,7 @@ class EmpiricalLSF(LSF):
         npix = int(self.data.shape[1] / 2.)
 
         # LSF at multiple wavelengths?
-        if self.crval1 > 0:
+        if self.crval2 > 0:
             # array for new flux
             new_flux = np.empty((len(spec.wave)))
 

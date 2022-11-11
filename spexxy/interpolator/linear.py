@@ -18,8 +18,8 @@ class LinearInterpolator(Interpolator):
 
         # get grid
         self.log.info('Initializing linear interpolator...')
-        self._grid = self.get_objects(grid, Grid, 'grids', single=True)
-        self._axes = self._grid.axes()
+        self._grid: Grid = self.get_objects(grid, Grid, 'grids', single=True)
+        self._axes: List[GridAxis] = self._grid.axes()
 
     @property
     def grid(self) -> Grid:
@@ -96,12 +96,12 @@ class LinearInterpolator(Interpolator):
             lower_data = self._interpolate(p_lower)
             higher_data = self._interpolate(p_higher)
 
-        # interpolate
-        f = (params[axis] - x_lower) / (x_higher - x_lower)
-        ip = lower_data * (1. - f) + higher_data * f
+        # calculate coefficients
+        A = (x_higher - params[axis]) / (x_higher - x_lower)
+        B = 1. - A
 
-        # return data
-        return ip
+        # return interpolation
+        return lower_data * A + higher_data * B
 
 
 __all__ = ['LinearInterpolator']

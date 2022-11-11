@@ -7,6 +7,7 @@ from typing import List
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 import pandas as pd
+from spexxy.interpolator import Interpolator
 
 from spexxy.data import FitsSpectrum, Spectrum
 from spexxy.component import Component
@@ -230,6 +231,20 @@ class ParamsFit(FilesRoutine):
         """
         return self._cmps + ([] if self._tellurics is None else [self._tellurics])
 
+    def _fit(self, params: Parameters) -> MinimizerResult:
+        """Perform the actual fit.
+
+        Args:
+            params: Parameters to fit.
+
+        Returns:
+            Result of fit
+        """
+        minimizer = lmfit.Minimizer(self._fit_func, params,
+                                    iter_cb=self._callback, max_nfev=self._max_fev, nan_policy='raise',
+                                    xtol=self._xtol, ftol=self._ftol, epsfcn=self._epsfcn, factor=self._factor)
+        return minimizer.leastsq()
+
     def __call__(self, filename: str) -> List[float]:
         """Start the fitting procedure on the given file.
 
@@ -287,11 +302,7 @@ class ParamsFit(FilesRoutine):
 
         # start minimization
         self.log.info('Starting fit...')
-        minimizer = lmfit.Minimizer(self._fit_func, params,
-                                    iter_cb=self._callback, max_nfev=self._max_fev, nan_policy='raise',
-                                    xtol=self._xtol, ftol=self._ftol, epsfcn=self._epsfcn, factor=self._factor)
-        result = minimizer.leastsq()
-        self.log.info('Finished fit.')
+        result = self._fit(params)
 
         # close PDF file
         if self._plot_iterations:

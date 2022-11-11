@@ -9,12 +9,16 @@ from ..data import Spectrum
 class FilesGrid(Grid):
     """Grid working on files with a CSV based database."""
 
-    def __init__(self, filename: str, *args, **kwargs):
+    def __init__(self, filename: str, norm_to_mean: bool = False, *args, **kwargs):
         """Constructs a new Grid.
 
         Args:
             filename: Filename of CSV file.
+            norm_to_mean: Normalize spectra to their mean.
         """
+
+        # store
+        self._norm_to_mean = norm_to_mean
 
         # expand filename
         filename = os.path.expandvars(filename)
@@ -61,16 +65,21 @@ class FilesGrid(Grid):
         """
         return tuple(params) in self._data.index
 
-    def filename(self, params: Tuple) -> str:
+    def filename(self, params: Tuple, absolute: bool = True) -> str:
         """Returns filename for given parameter set.
 
         Args:
             params: Parameter set to catch value for.
+            absolute: If True, return full absolute path, otherwise relative path within grid.
 
         Returns:
             Filename.
         """
-        return os.path.join(self._root, self._data.loc[tuple(params)].Filename)
+
+        if absolute:
+            return os.path.join(self._root, self._data.loc[tuple(params)].Filename)
+        else:
+            return self._data.loc[tuple(params)].Filename
 
     def __call__(self, params: Tuple) -> Any:
         """Fetches the value for the given parameter set.
@@ -91,8 +100,15 @@ class FilesGrid(Grid):
         else:
             filename = tmp.Filename
 
-        # return Spectrum
-        return Spectrum.load(os.path.join(self._root, filename))
+        # load Spectrum
+        spec = Spectrum.load(os.path.join(self._root, filename))
+
+        # normalize?
+        if self._norm_to_mean:
+            spec.norm_to_mean()
+
+        # return it
+        return spec
 
 
 __all__ = ['FilesGrid']
