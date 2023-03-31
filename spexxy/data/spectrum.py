@@ -11,6 +11,7 @@ import scipy.signal
 from astropy.io import fits
 from scipy.interpolate import UnivariateSpline, interp1d
 from typing import Tuple, Union
+import h5py
 
 from ..utils.exception import *
 
@@ -941,11 +942,8 @@ class Spectrum(object):
         if filename.endswith(".fit") or filename.endswith(".FIT") or \
                 filename.endswith(".fits") or filename.endswith(".FITS"):
 
-            # open file
-            f = fits.open(filename)
-
             # get header
-            hdr = f[0].header
+            hdr = fits.getheader(filename)
 
             # WAVE keyword?
             if "WAVE" in hdr.keys():
@@ -960,8 +958,8 @@ class Spectrum(object):
                 # normal fits spectrum
                 return SpectrumFits(filename)
 
-            # close fits
-            f.close()
+        elif filename.endswith(".h5"):
+            return SpectrumH5(filename)
 
         else:
             # no fits? try to load ascii...
@@ -1412,4 +1410,45 @@ class SpectrumAscii(Spectrum):
         self._filename = filename
 
 
-__all__ = ['Spectrum', 'SpectrumAscii', 'SpectrumBinTableFITS', 'SpectrumFits', 'SpectrumFitsHDU', 'SpectrumHiResFITS']
+class SpectrumH5(Spectrum):
+    """Handles spectra stored in H5 files."""
+
+    def __init__(self, filename: str = None, *args, **kwargs):
+        """Reads spectrum from H5 file.
+
+        Args:
+            filename: Filename to load spectrum from.
+        """
+        Spectrum.__init__(self, *args, **kwargs)
+
+        # store
+        self._filename = filename
+
+        # load
+        if filename:
+            # read from H5
+            fh5 = h5py.File(filename, 'r')
+            wave = fh5['PHOENIX_SPECTRUM/wl'][()]
+            flux = 10. ** fh5['PHOENIX_SPECTRUM/flux'][()]
+            fh5.close()
+
+            # set everything
+            self._wavelength = np.array(wave)
+            self.flux = np.array(flux)
+            self._wave_start = self._wavelength[0]
+            self._wave_step = 0
+            self._wave_mode = Spectrum.Mode.LOGLAMBDA \
+                if self._wave_start < 10 else Spectrum.Mode.LAMBDA
+            self._valid = np.zeros(self.flux.shape, dtype=np.bool)
+
+    def save(self, filename: str):
+        """Save spectrum to H5 file
+
+        Args:
+            filename: If given, save to this filename.
+        """
+        pass
+
+
+__all__ = ['Spectrum', 'SpectrumAscii', 'SpectrumBinTableFITS', 'SpectrumFits', 'SpectrumFitsHDU', 'SpectrumHiResFITS',
+           'SpectrumH5']

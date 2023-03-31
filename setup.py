@@ -25,6 +25,7 @@ setup(
         'lmfit',
         'pyyaml',
         'matplotlib',
-        'pyyaml'
+        'pyyaml',
+        'h5py'
     ]
 )
