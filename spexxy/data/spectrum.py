@@ -1449,6 +1449,10 @@ class SpectrumH5(Spectrum):
         """
         pass
 
+    @property
+    def filename(self):
+        return self._filename
+
 
 __all__ = ['Spectrum', 'SpectrumAscii', 'SpectrumBinTableFITS', 'SpectrumFits', 'SpectrumFitsHDU', 'SpectrumHiResFITS',
            'SpectrumH5']
