@@ -112,11 +112,11 @@ class Spectrum(object):
                 # if also no valid array is given, it's all invalid now
                 if valid is None:
                     # fill valid with zeros
-                    valid = np.zeros(flux.shape, dtype=np.bool)
+                    valid = np.zeros(flux.shape, dtype=bool)
 
             else:
                 # if we got some flux, but no valid array, we assume all valid
-                valid = np.ones(flux.shape, dtype=np.bool)
+                valid = np.ones(flux.shape, dtype=bool)
 
         # finally set flux and valid
         if flux is not None:
@@ -1074,7 +1074,7 @@ class SpectrumFitsHDU(Spectrum):
                     self._wavelength_to_angstrom(units)
 
                 # is it valid?
-                self._valid = np.zeros(self.flux.shape, dtype=np.bool)
+                self._valid = np.zeros(self.flux.shape, dtype=bool)
 
     def _wavelength_to_angstrom(self, units: str):
         """Convert wavelength units to Angstrom
@@ -1261,7 +1261,7 @@ class SpectrumHiResFITS(Spectrum):
                 self._wave_mode = Spectrum.Mode.LAMBDA
 
             # is it valid?
-            self._valid = np.zeros(self.flux.shape, dtype=np.bool)
+            self._valid = np.zeros(self.flux.shape, dtype=bool)
 
 
 class SpectrumBinTableFITS(Spectrum):
@@ -1303,7 +1303,7 @@ class SpectrumBinTableFITS(Spectrum):
                 self._wave_mode = Spectrum.Mode.LAMBDA
 
             # valid?
-            self._valid = np.zeros(self.flux.shape, dtype=np.bool)
+            self._valid = np.zeros(self.flux.shape, dtype=bool)
 
     def save(self, filename: str):
         """Save spectrum to FITS file
@@ -1381,7 +1381,7 @@ class SpectrumAscii(Spectrum):
             self._wave_step = 0
             self._wave_mode = Spectrum.Mode.LOGLAMBDA \
                 if self._wave_start < 10 else Spectrum.Mode.LAMBDA
-            self._valid = np.zeros(self.flux.shape, dtype=np.bool)
+            self._valid = np.zeros(self.flux.shape, dtype=bool)
 
     def save(self, filename: str):
         """Save spectrum to ASCII file
@@ -1439,7 +1439,7 @@ class SpectrumH5(Spectrum):
             self._wave_step = 0
             self._wave_mode = Spectrum.Mode.LOGLAMBDA \
                 if self._wave_start < 10 else Spectrum.Mode.LAMBDA
-            self._valid = np.zeros(self.flux.shape, dtype=np.bool)
+            self._valid = np.zeros(self.flux.shape, dtype=bool)
 
     def save(self, filename: str):
         """Save spectrum to H5 file

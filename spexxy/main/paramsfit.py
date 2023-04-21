@@ -391,7 +391,7 @@ class ParamsFit(FilesRoutine):
             self._spec = fs.spectrum
 
             # mask of good pixels
-            self._valid = fs.good_pixels.astype(np.bool)
+            self._valid = fs.good_pixels.astype(bool)
 
             # mask all NaNs
             self._valid &= ~np.isnan(self._spec.flux) & ~np.isnan(self._spec.wave)
@@ -605,7 +605,7 @@ class ParamsFit(FilesRoutine):
         m0 = models[0]
 
         # get valid points
-        valid = np.ones((len(m0)), dtype=np.bool)
+        valid = np.ones((len(m0)), dtype=bool)
         for m in models:
             valid &= ~np.isnan(m.flux)
 

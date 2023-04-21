@@ -26,6 +26,7 @@ setup(
         'pyyaml',
         'matplotlib',
         'pyyaml',
-        'h5py'
+        'h5py',
+        'PyQt5'
     ]
 )
