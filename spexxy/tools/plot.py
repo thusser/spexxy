@@ -147,7 +147,7 @@ def plot(spectra: list, output: str = None, results: bool = False, range: list =
 
         # show
         if output:
-            pdf.savefig(papertype='a4', orientation='landscape')
+            pdf.savefig(orientation='landscape')
             plt.close()
         else:
             plt.show()
