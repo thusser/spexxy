@@ -2,7 +2,7 @@ from pathlib import Path
 from single_source import get_version
 
 
-__version__ = get_version("pyobs-core", Path(__file__).parent.parent)
+__version__ = get_version("spexxy", Path(__file__).parent.parent)
 
 
 def version() -> str:
