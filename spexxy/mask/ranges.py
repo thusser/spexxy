@@ -94,7 +94,7 @@ class MaskRanges(Mask):
                     self.log.error('Could not find FITS header "%s" in file.')
 
         # init mask
-        mask = np.ones((len(spectrum.wave)), dtype=np.bool)
+        mask = np.ones((len(spectrum.wave)), dtype=bool)
 
         # loop ranges
         for rng in self._ranges:

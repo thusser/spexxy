@@ -1,4 +1,6 @@
 import logging
+import os
+import sys
 import typing
 
 
@@ -225,6 +227,7 @@ def get_class_from_string(class_name: str) -> typing.Type:
     module_name = ".".join(parts[:-1])
 
     # import module
+    sys.path.insert(0, os.getcwd())
     cls = __import__(module_name)
 
     # fetch class and return it

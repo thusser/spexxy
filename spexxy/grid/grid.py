@@ -274,7 +274,7 @@ class Grid(spexxyObject):
         return all_params[np.argmin(dist)]
 
     @staticmethod
-    def load(filename: str) -> 'Grid':
+    def load(filename: str, **kwargs) -> 'Grid':
         """Tries to identify type of grid and loads it.
 
         Args:
@@ -285,7 +285,7 @@ class Grid(spexxyObject):
         if filename.endswith('.csv'):
             # might be a files grid
             from .files import FilesGrid
-            return FilesGrid(filename)
+            return FilesGrid(filename, **kwargs)
 
         elif filename.endswith('.dat'):
             # might be a ferre grid
@@ -295,7 +295,7 @@ class Grid(spexxyObject):
         elif filename.endswith('.fits'):
             # FITS grid
             from .fits import FitsGrid
-            return FitsGrid(filename)
+            return FitsGrid(filename, **kwargs)
 
         else:
             raise ValueError('Unknown format')

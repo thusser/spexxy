@@ -63,12 +63,29 @@ class InitFromCsv(Init):
             if p in cmp_params:
                 # find column for parameter
                 col = None
+                col_type = "initial"
                 if cmp.prefix + self._cmp_sep + p in columns:
                     # <cmp>.<param> matches column name
                     col = columns[cmp.prefix + self._cmp_sep + p]
                 elif p in columns:
                     # just <param> matches column name
                     col = columns[p]
+                elif f"min({cmp.prefix}{self._cmp_sep}{p})" in columns:
+                    # match min(<param>)
+                    col = columns[f"min({cmp.prefix}{self._cmp_sep}{p})"]
+                    col_type = 'min'
+                elif f"min({p})" in columns:
+                    # match min(<param>)
+                    col = columns[f"min({p})"]
+                    col_type = 'min'
+                elif f"max({cmp.prefix}{self._cmp_sep}{p})" in columns:
+                    # match max(<cmp>.<param>
+                    col = columns[f"max({cmp.prefix}{self._cmp_sep}{p})"]
+                    col_type = 'max'
+                elif f"max({p})" in columns:
+                    # match min(<param>)
+                    col = columns[f"max({p})"]
+                    col_type = 'max'
 
                 # found column?
                 if col is not None:
@@ -79,9 +96,9 @@ class InitFromCsv(Init):
 
                     # set it, if we got a valid value
                     if val is not None:
-                        self.log.info('Setting initial value for "%s" of component "%s" to %f...',
-                                      param, cmp.prefix, val)
-                        cmp[cmp_params[p]] = val
+                        self.log.info(f'Setting {col_type} value for "{param}" of component "{cmp.prefix}" to {val}...')
+                        c = 'value' if col_type == 'initial' else col_type
+                        cmp.set(cmp_params[p], **{c: val})
 
 
 __all__ = ['InitFromCsv']

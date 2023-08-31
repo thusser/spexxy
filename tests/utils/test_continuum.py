@@ -49,7 +49,7 @@ class TestContinuum(object):
         x, y, yn = data()
 
         # add some outliers
-        valid = np.ones((len(x)), dtype=np.bool)
+        valid = np.ones((len(x)), dtype=bool)
         valid[np.random.randint(0, len(x), 10)] = False
         yn[~valid] -= 1000
 
@@ -78,7 +78,7 @@ class TestMaximumBin():
         x, y, yn = data()
 
         # add some outliers
-        valid = np.ones((len(x)), dtype=np.bool)
+        valid = np.ones((len(x)), dtype=bool)
         valid[np.random.randint(0, len(x), 10)] = False
         yn[~valid] -= 10
 
@@ -107,7 +107,7 @@ class TestSigmaClipping():
         x, y, yn = data()
 
         # add some outliers
-        valid = np.ones((len(x)), dtype=np.bool)
+        valid = np.ones((len(x)), dtype=bool)
         valid[np.random.randint(0, len(x), 10)] = False
         yn[~valid] -= 10
 

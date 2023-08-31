@@ -255,9 +255,9 @@ class FitsSpectrum(object):
     def good_pixels(self):
         """Returns mask of valid for spectrum, or array of ones if they don't exist."""
         if 'GOODPIXELS' in self.hdu_names():
-            return self['GOODPIXELS'].flux.astype(np.bool)
+            return self['GOODPIXELS'].flux.astype(bool)
         else:
-            return np.ones((self.wave_count()), dtype=np.bool)
+            return np.ones((self.wave_count()), dtype=bool)
 
     @good_pixels.setter
     def good_pixels(self, arr: np.ndarray):
@@ -269,7 +269,7 @@ class FitsSpectrum(object):
 
         # create new Spectrum and set mask as flux
         spec = SpectrumFitsHDU(spec=self.spectrum, dtype=np.int16, primary=False)
-        spec.flux = arr.astype(np.bool)
+        spec.flux = arr.astype(bool)
 
         # write into HDU
         self['GOODPIXELS'] = spec

@@ -45,15 +45,15 @@ class MaskFromPath(Mask):
             # read from file and return it as boolean array
             self.log.info('Reading additional mask from file %s...', filename)
             try:
-                mask = fits.getdata(filename, self._fits_extension).astype(np.bool)
+                mask = fits.getdata(filename, self._fits_extension).astype(bool)
             except KeyError:
                 self.log.warning('Could not find extension %s in FITS file, skipping.', self._fits_extension)
-                return np.ones((len(spectrum.wave)), dtype=np.bool)
+                return np.ones((len(spectrum.wave)), dtype=bool)
 
             # check length
             if len(spectrum) != len(mask):
                 self.log.warning('Length of mask does not match length of spectum. Using empty mask.')
-                return np.ones((len(spectrum.wave)), dtype=np.bool)
+                return np.ones((len(spectrum.wave)), dtype=bool)
 
             # return mask
             return mask
@@ -61,7 +61,7 @@ class MaskFromPath(Mask):
         else:
             # return empty mask...
             self.log.warning('Could not find addition file for mask: %s', filename)
-            return np.ones((len(spectrum.wave)), dtype=np.bool)
+            return np.ones((len(spectrum.wave)), dtype=bool)
 
 
 __all__ = ['MaskFromPath']

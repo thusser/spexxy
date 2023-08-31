@@ -1,24 +1,39 @@
-from typing import List, Any, Tuple
+from abc import abstractmethod
+from typing import List, Any, Tuple, Union, Type, Protocol, Optional
 import pandas as pd
 import os
 
 from .grid import Grid, GridAxis
 from ..data import Spectrum
+from ..object import get_class_from_string
+
+
+class SpecLoader(Protocol):
+    @staticmethod
+    @abstractmethod
+    def load(filename: str) -> Spectrum:
+        raise NotImplementedError
 
 
 class FilesGrid(Grid):
     """Grid working on files with a CSV based database."""
 
-    def __init__(self, filename: str, norm_to_mean: bool = False, *args, **kwargs):
+    def __init__(self, filename: str, norm_to_mean: bool = False, spec_loader: Optional[Union[str, SpecLoader]] = None,
+                *args, **kwargs):
         """Constructs a new Grid.
 
         Args:
             filename: Filename of CSV file.
             norm_to_mean: Normalize spectra to their mean.
+            spec_loader: Class to load spectrum, must provide load(str)->Spectrum method
         """
 
         # store
         self._norm_to_mean = norm_to_mean
+        if spec_loader is None:
+            self._spec_loader = Spectrum
+        else:
+            self._spec_loader = get_class_from_string(spec_loader) if isinstance(spec_loader, str) else spec_loader
 
         # expand filename
         filename = os.path.expandvars(filename)
@@ -101,7 +116,7 @@ class FilesGrid(Grid):
             filename = tmp.Filename
 
         # load Spectrum
-        spec = Spectrum.load(os.path.join(self._root, filename))
+        spec = self._spec_loader.load(os.path.join(self._root, filename))
 
         # normalize?
         if self._norm_to_mean:

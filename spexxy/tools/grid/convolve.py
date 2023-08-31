@@ -23,6 +23,7 @@ def add_parser(subparsers):
     parser.add_argument('-a', '--air', action="store_true", help='Convert spectra to air wavelengths.')
     parser.add_argument('-n', '--normalize', action="store_true", help='Normalize spectra to a mean flux of 1.')
     parser.add_argument('-p', '--precrop', type=float, nargs=2, help='Crop spectrum to this range before doing anything.')
+    parser.add_argument('--spec-loader', type=str, help='Class for loading spectra.')
 
     # group for fwhm and lsf
     group = parser.add_mutually_exclusive_group()
@@ -33,17 +34,18 @@ def add_parser(subparsers):
     def run(args):
         convolve_grid(args.input, args.output, args.wave[0], args.wave[1], args.wave[2],
                       overwrite=args.overwrite, vac2air=args.air, log_scale=args.log, log_convolve=args.logconv,
-                      normalize=args.normalize, fwhm=args.fwhm, lsf_file=args.lsf, precrop=args.precrop)
+                      normalize=args.normalize, fwhm=args.fwhm, lsf_file=args.lsf, precrop=args.precrop,
+                      spec_loader=args.spec_loader)
     parser.set_defaults(func=run)
 
 
 def convolve_grid(ingrid: str, outdir: str, wave_start: float, wave_end: float, sampling: float,
                   overwrite: bool = True, vac2air: bool = True, log_scale: bool = False,
                   log_convolve: bool = False, normalize: bool = False, fwhm: float = None,
-                  lsf_file: str = None, precrop = None):
+                  lsf_file: str = None, precrop = None, spec_loader: str = None):
 
     # load grid
-    grid = Grid.load(ingrid)
+    grid = Grid.load(ingrid, spec_loader=spec_loader)
 
     # outdir and grid file
     if not os.path.exists(outdir):

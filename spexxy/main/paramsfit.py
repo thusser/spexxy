@@ -107,7 +107,7 @@ class ParamsFit(FilesRoutine):
                  weights: List[Weight] = None, fixparams: List[str] = None, poly_degree: int = 40,
                  maxfev: int = 500, ftol: float = 1.49012e-08, xtol: float = 1.49012e-08,
                  factor: float = 100.0, epsfcn: float = 1e-7, min_valid_pixels: float = 0.5,
-                 plot_iterations: bool = False, *args, **kwargs):
+                 plot_iterations: bool = False, check_limits: bool = True, *args, **kwargs):
         """Initialize a new ParamsFit object
 
         Args:
@@ -125,6 +125,7 @@ class ParamsFit(FilesRoutine):
                 the Jacobian (see scipy documentation)
             min_valid_pixels: Fraction of minimum number of required pixels to continue with fit.
             plot_iterations: Plot all iterations into a PDF file.
+            check_limits: Whether to check if results are close to limits.
         """
         FilesRoutine.__init__(self, *args, **kwargs)
 
@@ -137,6 +138,7 @@ class ParamsFit(FilesRoutine):
         self._poly_degree = poly_degree
         self._fixparams = fixparams
         self._min_valid_pixels = min_valid_pixels
+        self._check_limits = check_limits
 
         # spectrum
         self._spec = None
@@ -322,22 +324,23 @@ class ParamsFit(FilesRoutine):
         message = "" if result.lmdif_message is None else result.lmdif_message.replace("\n", " ")
 
         # if any of the parameters was fitted close to their edge, fit failed
-        for pn in result.params:
-            # ignore all sigma values
-            if pn.lower().find("sig") != -1 or pn.lower().find("tellurics") != -1:
-                continue
+        if self._check_limits:
+            for pn in result.params:
+                # ignore all sigma values
+                if pn.lower().find("sig") != -1 or pn.lower().find("tellurics") != -1:
+                    continue
 
-            # get param
-            p = result.params[pn]
+                # get param
+                p = result.params[pn]
 
-            # get position of value within range for parameter
-            pos = (p.value - p.min) / (p.max - p.min)
+                # get position of value within range for parameter
+                pos = (p.value - p.min) / (p.max - p.min)
 
-            # if pos < 0.01 or pos > 0.99, i.e. closer than 1% to the edge, fit failes
-            if p.vary and (pos < 0.01 or pos > 0.99):
-                success = False
-                message = "Parameter %s out of range: %.2f" % (p.name, p.value)
-                break
+                # if pos < 0.01 or pos > 0.99, i.e. closer than 1% to the edge, fit failes
+                if p.vary and (pos < 0.01 or pos > 0.99):
+                    success = False
+                    message = "Parameter %s out of range: %.2f" % (p.name, p.value)
+                    break
 
         # fill statistics dict
         stats = {'success': success,
@@ -391,7 +394,7 @@ class ParamsFit(FilesRoutine):
             self._spec = fs.spectrum
 
             # mask of good pixels
-            self._valid = fs.good_pixels.astype(np.bool)
+            self._valid = fs.good_pixels.astype(bool)
 
             # mask all NaNs
             self._valid &= ~np.isnan(self._spec.flux) & ~np.isnan(self._spec.wave)
@@ -605,7 +608,7 @@ class ParamsFit(FilesRoutine):
         m0 = models[0]
 
         # get valid points
-        valid = np.ones((len(m0)), dtype=np.bool)
+        valid = np.ones((len(m0)), dtype=bool)
         for m in models:
             valid &= ~np.isnan(m.flux)
 

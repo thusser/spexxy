@@ -35,7 +35,7 @@ class MaskEnds(Mask):
         """
 
         # create empty mask
-        mask = np.ones((len(spectrum.wave)), dtype=np.bool)
+        mask = np.ones((len(spectrum.wave)), dtype=bool)
 
         # if npixels is zero, just return mask
         if self._npixels == 0:

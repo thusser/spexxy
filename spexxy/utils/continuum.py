@@ -79,7 +79,7 @@ class Continuum(object):
 
         # no valid array?
         if valid is None:
-            valid = np.ones((x.shape), dtype=np.bool)
+            valid = np.ones((x.shape), dtype=bool)
 
         # fit polynomial
         return self._fit_poly(x[valid], y[valid], x)
@@ -140,7 +140,7 @@ class MaximumBin(Continuum):
 
         # no valid array?
         if valid is None:
-            valid = np.ones((x.shape), dtype=np.bool)
+            valid = np.ones((x.shape), dtype=bool)
 
         # find continuum for every of the sbin bins
         bins_x = np.zeros((self.sbin))
@@ -204,7 +204,7 @@ class SigmaClipping(Continuum):
 
         # no valid array?
         if valid is None:
-            valid = np.ones((x.shape), dtype=np.bool)
+            valid = np.ones((x.shape), dtype=bool)
 
         # copy x and y
         xx = x[valid].copy()
@@ -270,7 +270,7 @@ class Regions(Continuum):
 
         # no valid array?
         if valid is None:
-            valid = np.ones(x.shape, dtype=np.bool)
+            valid = np.ones(x.shape, dtype=bool)
 
         # evaluate regions
         xx = []
