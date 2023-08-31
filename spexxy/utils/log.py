@@ -1,6 +1,6 @@
 import logging
 
-from ..version import VERSION
+from ..version import version
 
 
 def setup_log(name: str, filename: str = None, stream: bool = True, mode: str = 'w',
@@ -47,7 +47,7 @@ def setup_log(name: str, filename: str = None, stream: bool = True, mode: str = 
         log.info(r"\__ \ |_) |  __/>  <  >  <| |_| |")
         log.info(r"|___/ .__/ \___/_/\_\/_/\_\\__, |")
         log.info(r"    | |                     __/ |")
-        log.info(r"    |_|        v%3s        |___/ " % VERSION)
+        log.info(r"    |_|        v%3s        |___/ " % version())
         log.info(r"")
         log.info(r"        Tim-Oliver Husser        ")
         log.info(r"    thusser@uni-goettingen.de    ")
