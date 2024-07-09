@@ -78,7 +78,7 @@ class Spectrum(object):
             self._wave_step = spec.wave_step
             self._wavelength = None if spec._wavelength is None else spec._wavelength.copy()
             self._wave_mode = spec.wave_mode
-            self._valid = spec.valid
+            self._valid = None if spec._valid is None else spec._valid.copy()
 
         # wavelength array given?
         if wave is not None:
@@ -269,10 +269,15 @@ class Spectrum(object):
             self._wavelength = self.wave * (1. + vrad / 299792.458)
             # and non-constant step size
             self._wave_step = 0
-        else:
+        elif self._wave_mode == Spectrum.Mode.LOGLAMBDA:
             # wavelength in log domain is simpler
             self._wavelength = self.wave + math.log(1. + vrad / 299792.458)
             self._wave_start = self._wavelength[0]
+        elif self._wave_mode == Spectrum.Mode.LOG10LAMBDA:
+            self._wavelength = self.wave + math.log10(1. + vrad / 299792.458)
+            self._wave_start = self._wavelength[0]
+        else:
+            raise NotImplementedError('Unsupported wave mode: {}'.format(self._wave_mode))
 
     def resample(self, spec: 'Spectrum' = None, wave: np.ndarray = None, wave_start: float = None,
                  wave_count: int = None, wave_step: float = None, wave_end: float = None, vrad: float = 0.,
@@ -349,7 +354,9 @@ class Spectrum(object):
                                     linear=linear, fill_value=fill_value)
 
             # copy all values in range of this part
-            output.flux[start_index:start_index+len(ip)] = ip[start_index:start_index+len(ip)]
+            # output.flux[start_index:start_index+len(ip)] = ip[start_index:start_index+len(ip)]
+            i_min, i_max = output.indices_of_wave_range(part.wave.min(), part.wave.max())
+            output.flux[i_min:i_max] = ip[i_min:i_max]
 
         # return result
         return output
@@ -515,9 +522,9 @@ class Spectrum(object):
         w = self.wave
 
         # too small/large?
-        if wave < w[0]:
+        if wave < 0.5 * (w[1] + w[0]):
             raise spexxyValueTooLowException()
-        if wave > w[-1]:
+        if wave >= 0.5 * (w[-1] + w[-2]):
             raise spexxyValueTooHighException()
 
         # find it
@@ -573,11 +580,16 @@ class Spectrum(object):
             Extracted spectrum
         """
         if self._wave_step != 0.:
-            return self.__class__(spec=self, flux=np.copy(self.flux[i1:i2]), wave_start=self.wave[i1],
+            spec = self.__class__(spec=self, flux=np.copy(self.flux[i1:i2]), wave_start=self.wave[i1],
                                   wave_step=self._wave_step, wave_mode=self._wave_mode)
         else:
-            return self.__class__(spec=self, flux=np.copy(self.flux[i1:i2]), wave=np.copy(self.wave[i1:i2]),
+            spec = self.__class__(spec=self, flux=np.copy(self.flux[i1:i2]), wave=np.copy(self.wave[i1:i2]),
                                   wave_mode=self._wave_mode)
+
+        if self.valid is not None:
+            spec.valid = np.copy(self.valid[i1:i2])
+
+        return spec
 
     def extract(self, w1: float, w2: float) -> 'Spectrum':
         """Extract spectrum in given wavelength range.
