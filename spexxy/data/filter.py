@@ -4,7 +4,7 @@ from fnmatch import fnmatch
 from typing import List
 
 import numpy as np
-from scipy.integrate import trapz
+from scipy.integrate import trapezoid
 from spexxy.data.spectrum import Spectrum, SpectrumAscii
 
 
@@ -152,7 +152,7 @@ class Filter(object):
         fs = spec.flux * self._throughput.flux
 
         # integrate
-        return trapz(fs, spec.wave) / trapz(self._throughput.flux, spec.wave)
+        return trapezoid(fs, spec.wave) / trapezoid(self._throughput.flux, spec.wave)
 
     def stmag(self, spec: Spectrum) -> float:
         """Calculate ST magnitude of given spectrum.
@@ -218,8 +218,8 @@ class Filter(object):
         # if no filter is given, use full spectrum
         if self.filter_name is None:
             # whole spectrum
-            flux1 = trapz(spec.flux, spec.wave)
-            flux2 = trapz(self._vega.flux, self._vega.wave)
+            flux1 = trapezoid(spec.flux, spec.wave)
+            flux2 = trapezoid(self._vega.flux, self._vega.wave)
 
         else:
             # multiply spectra with filter
@@ -228,9 +228,9 @@ class Filter(object):
 
             # integrate
             w = ~np.isnan(filter_spec)
-            flux1 = trapz(filter_spec[w], spec.wave[w]) / trapz(self._throughput.flux[w], spec.wave[w])
+            flux1 = trapezoid(filter_spec[w], spec.wave[w]) / trapezoid(self._throughput.flux[w], spec.wave[w])
             w = ~np.isnan(filter_vega)
-            flux2 = trapz(filter_vega[w], self._vega.wave[w]) / trapz(self._vega_throughput.flux[w], self._vega.wave[w])
+            flux2 = trapezoid(filter_vega[w], self._vega.wave[w]) / trapezoid(self._vega_throughput.flux[w], self._vega.wave[w])
 
         # check
         if flux2 == 0:
