@@ -269,10 +269,15 @@ class Spectrum(object):
             self._wavelength = self.wave * (1. + vrad / 299792.458)
             # and non-constant step size
             self._wave_step = 0
-        else:
+        elif self._wave_mode == Spectrum.Mode.LOGLAMBDA:
             # wavelength in log domain is simpler
             self._wavelength = self.wave + math.log(1. + vrad / 299792.458)
             self._wave_start = self._wavelength[0]
+        elif self._wave_mode == Spectrum.Mode.LOG10LAMBDA:
+            self._wavelength = self.wave + math.log10(1. + vrad / 299792.458)
+            self._wave_start = self._wavelength[0]
+        else:
+            raise NotImplementedError('Unsupported wave mode: {}'.format(self._wave_mode))
 
     def resample(self, spec: 'Spectrum' = None, wave: np.ndarray = None, wave_start: float = None,
                  wave_count: int = None, wave_step: float = None, wave_end: float = None, vrad: float = 0.,
