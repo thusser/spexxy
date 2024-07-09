@@ -78,7 +78,7 @@ class Spectrum(object):
             self._wave_step = spec.wave_step
             self._wavelength = None if spec._wavelength is None else spec._wavelength.copy()
             self._wave_mode = spec.wave_mode
-            self._valid = spec.valid
+            self._valid = None if spec._valid is None else spec._valid.copy()
 
         # wavelength array given?
         if wave is not None:
@@ -573,11 +573,16 @@ class Spectrum(object):
             Extracted spectrum
         """
         if self._wave_step != 0.:
-            return self.__class__(spec=self, flux=np.copy(self.flux[i1:i2]), wave_start=self.wave[i1],
+            spec = self.__class__(spec=self, flux=np.copy(self.flux[i1:i2]), wave_start=self.wave[i1],
                                   wave_step=self._wave_step, wave_mode=self._wave_mode)
         else:
-            return self.__class__(spec=self, flux=np.copy(self.flux[i1:i2]), wave=np.copy(self.wave[i1:i2]),
+            spec = self.__class__(spec=self, flux=np.copy(self.flux[i1:i2]), wave=np.copy(self.wave[i1:i2]),
                                   wave_mode=self._wave_mode)
+
+        if self.valid is not None:
+            spec.valid = np.copy(self.valid[i1:i2])
+
+        return spec
 
     def extract(self, w1: float, w2: float) -> 'Spectrum':
         """Extract spectrum in given wavelength range.
