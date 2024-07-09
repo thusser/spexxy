@@ -354,9 +354,9 @@ class Spectrum(object):
                                     linear=linear, fill_value=fill_value)
 
             # copy all values in range of this part
-            # output.flux[start_index:start_index+len(ip)] = ip[start_index:start_index+len(ip)]
-            i_min, i_max = output.indices_of_wave_range(part.wave.min(), part.wave.max())
-            output.flux[i_min:i_max] = ip[i_min:i_max]
+            output.flux[start_index:start_index+len(ip)] = ip[start_index:start_index+len(ip)]
+            #i_min, i_max = output.indices_of_wave_range(part.wave.min(), part.wave.max())
+            #output.flux[i_min:i_max] = ip[i_min:i_max]
 
         # return result
         return output
