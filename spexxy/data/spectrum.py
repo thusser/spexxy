@@ -520,9 +520,9 @@ class Spectrum(object):
         w = self.wave
 
         # too small/large?
-        if wave < w[0]:
+        if wave < 0.5 * (w[1] + w[0]):
             raise spexxyValueTooLowException()
-        if wave > w[-1]:
+        if wave >= 0.5 * (w[-1] + w[-2]):
             raise spexxyValueTooHighException()
 
         # find it
