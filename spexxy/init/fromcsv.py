@@ -76,7 +76,6 @@ class InitFromCsv(Init):
             # is it actually a parameter of the given component?
             if p in cmp_params:
                 # find column for parameter
-                col = None
                 if cmp.prefix + self._cmp_sep + p in columns:
                     # <cmp>.<param> matches column name
                     col = columns[cmp.prefix + self._cmp_sep + p]
