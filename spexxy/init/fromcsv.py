@@ -31,6 +31,20 @@ class InitFromCsv(Init):
         self.log.info('Reading CSV file with initial values from %s...', filename)
         self._csv = pd.read_csv(filename, index_col=filename_col)
 
+    def _set_cmp_param(self, column: str, column_type: str, filename: str, cmp: Component, param: str):
+        # found column?
+        if column is not None:
+            # get value
+            val = self._csv.at[filename, column]
+            if np.isnan(val):
+                val = None
+
+            # set it, if we got a valid value
+            if val is not None:
+                self.log.info(f'Setting {column_type} value for "{param}" of component "{cmp.prefix}" to {val}...')
+                c = 'value' if column_type == 'initial' else column_type
+                cmp.set(param, **{c: val})
+
     def __call__(self, cmp: Component, filename: str):
         """Initializes parameters of the given component with values from the CSV given in the configuration.
 
@@ -62,43 +76,30 @@ class InitFromCsv(Init):
             # is it actually a parameter of the given component?
             if p in cmp_params:
                 # find column for parameter
-                col = None
-                col_type = "initial"
                 if cmp.prefix + self._cmp_sep + p in columns:
                     # <cmp>.<param> matches column name
                     col = columns[cmp.prefix + self._cmp_sep + p]
+                    self._set_cmp_param(col, 'initial', filename, cmp, cmp_params[p])
                 elif p in columns:
                     # just <param> matches column name
                     col = columns[p]
+                    self._set_cmp_param(col, 'initial', filename, cmp, cmp_params[p])
                 elif f"min({cmp.prefix}{self._cmp_sep}{p})" in columns:
                     # match min(<param>)
                     col = columns[f"min({cmp.prefix}{self._cmp_sep}{p})"]
-                    col_type = 'min'
+                    self._set_cmp_param(col, 'min', filename, cmp, cmp_params[p])
                 elif f"min({p})" in columns:
                     # match min(<param>)
                     col = columns[f"min({p})"]
-                    col_type = 'min'
+                    self._set_cmp_param(col, 'min', filename, cmp, cmp_params[p])
                 elif f"max({cmp.prefix}{self._cmp_sep}{p})" in columns:
                     # match max(<cmp>.<param>
                     col = columns[f"max({cmp.prefix}{self._cmp_sep}{p})"]
-                    col_type = 'max'
+                    self._set_cmp_param(col, 'max', filename, cmp, cmp_params[p])
                 elif f"max({p})" in columns:
                     # match min(<param>)
                     col = columns[f"max({p})"]
-                    col_type = 'max'
-
-                # found column?
-                if col is not None:
-                    # get value
-                    val = self._csv.at[filename, col]
-                    if np.isnan(val):
-                        val = None
-
-                    # set it, if we got a valid value
-                    if val is not None:
-                        self.log.info(f'Setting {col_type} value for "{param}" of component "{cmp.prefix}" to {val}...')
-                        c = 'value' if col_type == 'initial' else col_type
-                        cmp.set(cmp_params[p], **{c: val})
+                    self._set_cmp_param(col, 'max', filename, cmp, cmp_params[p])
 
 
 __all__ = ['InitFromCsv']

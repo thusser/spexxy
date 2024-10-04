@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "spexxy"
-version = "2.8.2"
+version = "2.9.0"
 description = "spectrum fitting package"
 authors = ["Tim-Oliver Husser <thusser@uni-goettingen.de>"]
 license = "MIT"
