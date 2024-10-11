@@ -80,23 +80,23 @@ class InitFromCsv(Init):
                     # <cmp>.<param> matches column name
                     col = columns[cmp.prefix + self._cmp_sep + p]
                     self._set_cmp_param(col, 'initial', filename, cmp, cmp_params[p])
-                elif p in columns:
+                if p in columns:
                     # just <param> matches column name
                     col = columns[p]
                     self._set_cmp_param(col, 'initial', filename, cmp, cmp_params[p])
-                elif f"min({cmp.prefix}{self._cmp_sep}{p})" in columns:
+                if f"min({cmp.prefix}{self._cmp_sep}{p})" in columns:
                     # match min(<param>)
                     col = columns[f"min({cmp.prefix}{self._cmp_sep}{p})"]
                     self._set_cmp_param(col, 'min', filename, cmp, cmp_params[p])
-                elif f"min({p})" in columns:
+                if f"min({p})" in columns:
                     # match min(<param>)
                     col = columns[f"min({p})"]
                     self._set_cmp_param(col, 'min', filename, cmp, cmp_params[p])
-                elif f"max({cmp.prefix}{self._cmp_sep}{p})" in columns:
+                if f"max({cmp.prefix}{self._cmp_sep}{p})" in columns:
                     # match max(<cmp>.<param>
                     col = columns[f"max({cmp.prefix}{self._cmp_sep}{p})"]
                     self._set_cmp_param(col, 'max', filename, cmp, cmp_params[p])
-                elif f"max({p})" in columns:
+                if f"max({p})" in columns:
                     # match min(<param>)
                     col = columns[f"max({p})"]
                     self._set_cmp_param(col, 'max', filename, cmp, cmp_params[p])
