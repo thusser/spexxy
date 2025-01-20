@@ -38,7 +38,7 @@ class Vsini:
         spec_lin = tmp.resample_const()
 
         # apply broadening
-        spec_lin.flux = pyasl.rotBroad(spec_lin.wave, spec_lin.flux, epsilon=self._vsini[2], vsini=self._vsini[1])
+        spec_lin.flux = pyasl.fastRotBroad(spec_lin.wave, spec_lin.flux, epsilon=self._vsini[2], vsini=self._vsini[1])
 
         # recover original sampling & return
         spec_lin.mode(spec.wave_mode)
@@ -52,16 +52,21 @@ __all__ = ['Vsini']
 
 
 if __name__ == "__main__":
+    import time
     import matplotlib.pyplot as plt
     from spexxy.data import FitsSpectrum
     from spexxy.data import LOSVD
 
     fs = FitsSpectrum('/Users/ariskama/Downloads/lte11200-4.50-0.5.PHOENIX-ACES-AGSS-COND-2011-HiRes.fits')
-    kernel = Vsini(params=[100., 100., 0.5])
+    t0 = time.time()
+    kernel = Vsini(params=[100., 200., 0.5])
     out = kernel(fs.spectrum)
+    t1 = time.time()
 
     losvd = LOSVD(params=[100., 100., 0., 0., 0.])
     alt = losvd(fs.spectrum)
+    t2 = time.time()
+    print(t1-t0, t2-t1)
 
     fig, ax = plt.subplots()
     ax.plot(fs.spectrum.wave, fs.spectrum.flux, 'g-')
