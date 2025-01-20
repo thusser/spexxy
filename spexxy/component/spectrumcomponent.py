@@ -16,7 +16,7 @@ class SpectrumComponent(Component):
     """SpectrumComponent is the base Component class for all components that deal with spectra."""
 
     def __init__(self, name: str, broadening_type: str = 'LOSVD', losvd_hermite: bool = False,
-                 vsini_epsilon: bool = False, vac_to_air: bool = False, lsf: Union[LSF, str, dict] = None,
+                 vac_to_air: bool = False, lsf: Union[LSF, str, dict] = None,
                  *args, **kwargs):
         """Initializes a new SpectrumComponent.
 
@@ -24,7 +24,6 @@ class SpectrumComponent(Component):
             name: Name of new component
             broadening_type: Type of broadening (LOSVD, VSINI)
             losvd_hermite: Whether Hermite polynomials should be used for the LOSVD
-            vsini_epsilon: Whether limb darkening parameter should be used for the VSINI.
             vac_to_air: If True, vac_to_air() is called on spectra returned from the model_func
             lsf: LSF to apply to spectrum
         """
@@ -32,7 +31,6 @@ class SpectrumComponent(Component):
         self._vac_to_air = vac_to_air
         self._broadening_type = broadening_type
         self._losvd_hermite = losvd_hermite
-        self._vsini_epsilon = vsini_epsilon
 
         # add losvd parameters
         self.set('v', min=-2000., max=2000., value=1.)
@@ -45,8 +43,7 @@ class SpectrumComponent(Component):
                 self.set('h6', min=-0.3, max=0.3, value=0.)
         elif self._broadening_type == 'VSINI':
             self.set('vsini', min=0, max=800., value=20.)
-            if self._vsini_epsilon:
-                self.set('epsilon', min=0., max=1., value=0.5)
+            self.set('epsilon', min=0., max=1., value=0.5)
 
         # get lsf
         if isinstance(lsf, LSF):
@@ -81,7 +78,7 @@ class SpectrumComponent(Component):
         if self._broadening_type == 'LOSVD':
             losvd_params = ['v', 'sig'] + (['h3', 'h4', 'h5', 'h6'] if self._losvd_hermite else [])
         elif self._broadening_type == 'VSINI':
-            losvd_params = ['v', 'vsini'] + (['epsilon'] if self._vsini_epsilon else [])
+            losvd_params = ['v', 'vsini', 'epsilon']
         else:
             raise ValueError('Unknown broadening type: ', self._broadening_type)
         losvd = [self[p] for p in losvd_params]
