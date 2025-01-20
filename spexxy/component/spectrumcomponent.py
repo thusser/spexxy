@@ -1,36 +1,52 @@
 import os
+# from enum import Enum
 from typing import Callable, Union
 
 from .component import Component
-from ..data import LOSVD, Spectrum, LSF
+from ..data import LOSVD, Vsini, Spectrum, LSF
 from ..object import create_object
+
+
+# class Broadening(Enum):
+#     LOSVD = 1
+#     VSINI = 2
 
 
 class SpectrumComponent(Component):
     """SpectrumComponent is the base Component class for all components that deal with spectra."""
 
-    def __init__(self, name: str, losvd_hermite: bool = False, vac_to_air: bool = False,
-                 lsf: Union[LSF, str, dict] = None, *args, **kwargs):
+    def __init__(self, name: str, broadening_type: str = 'LOSVD', losvd_hermite: bool = False,
+                 vsini_epsilon: bool = False, vac_to_air: bool = False, lsf: Union[LSF, str, dict] = None,
+                 *args, **kwargs):
         """Initializes a new SpectrumComponent.
 
         Args:
             name: Name of new component
-            losvd_hermite: Whether or not Hermite polynomials should be used for the LOSVD
+            broadening_type: Type of broadening (LOSVD, VSINI)
+            losvd_hermite: Whether Hermite polynomials should be used for the LOSVD
+            vsini_epsilon: Whether limb darkening parameter should be used for the VSINI.
             vac_to_air: If True, vac_to_air() is called on spectra returned from the model_func
             lsf: LSF to apply to spectrum
         """
         Component.__init__(self, name, *args, **kwargs)
         self._vac_to_air = vac_to_air
+        self._broadening_type = broadening_type
         self._losvd_hermite = losvd_hermite
+        self._vsini_epsilon = vsini_epsilon
 
         # add losvd parameters
         self.set('v', min=-2000., max=2000., value=1.)
-        self.set('sig', min=0., max=500., value=10.)
-        if self._losvd_hermite:
-            self.set('h3', min=-0.3, max=0.3, value=0.)
-            self.set('h4', min=-0.3, max=0.3, value=0.)
-            self.set('h5', min=-0.3, max=0.3, value=0.)
-            self.set('h6', min=-0.3, max=0.3, value=0.)
+        if self._broadening_type == 'LOSVD':
+            self.set('sig', min=0., max=500., value=10.)
+            if self._losvd_hermite:
+                self.set('h3', min=-0.3, max=0.3, value=0.)
+                self.set('h4', min=-0.3, max=0.3, value=0.)
+                self.set('h5', min=-0.3, max=0.3, value=0.)
+                self.set('h6', min=-0.3, max=0.3, value=0.)
+        elif self._broadening_type == 'VSINI':
+            self.set('vsini', min=0, max=800., value=20.)
+            if self._vsini_epsilon:
+                self.set('epsilon', min=0., max=1., value=0.5)
 
         # get lsf
         if isinstance(lsf, LSF):
@@ -62,7 +78,12 @@ class SpectrumComponent(Component):
                 self.set(key, value=val)
 
         # get LOSVD parameters
-        losvd_params = ['v', 'sig'] + (['h3', 'h4', 'h5', 'h6'] if self._losvd_hermite else [])
+        if self._broadening_type == 'LOSVD':
+            losvd_params = ['v', 'sig'] + (['h3', 'h4', 'h5', 'h6'] if self._losvd_hermite else [])
+        elif self._broadening_type == 'VSINI':
+            losvd_params = ['v', 'vsini'] + (['epsilon'] if self._vsini_epsilon else [])
+        else:
+            raise ValueError('Unknown broadening type: ', self._broadening_type)
         losvd = [self[p] for p in losvd_params]
 
         # get  model
@@ -74,7 +95,7 @@ class SpectrumComponent(Component):
             model = self._lsf(model)
 
         # apply losvd
-        self._apply_losvd(model, losvd)
+        self._apply_losvd(model, losvd, self._broadening_type)
 
         # vac2air
         if self._vac_to_air:
@@ -84,19 +105,22 @@ class SpectrumComponent(Component):
         return model
 
     @staticmethod
-    def _apply_losvd(model, losvd):
+    def _apply_losvd(model, losvd, broadening_type='LOSVD'):
         """Apply LOSVD with the given parameters to the given model.
 
         WARNING: We will NOT FIT line broadening, if model spectra are in LAMBDA mode!
 
         Args:
             model: Model to apply LOSVD to.
-            losvd: LOSVD parameters (v, sig, <h3, h4, h5, h6>)
+            losvd: LOSVD parameters, required number depends on value of 'broadening'
+                   Gauss-Hermite (LOSVD): (v, sig, <h3, h4, h5, h6>)
+                   Rotational (VSINI): (v, vsini, epsilon)
+            broadening_type: Broadening method to use.
         """
         if losvd[1] < 1e-5 or model.wave_mode == Spectrum.Mode.LAMBDA:
             # in LAMBDA mode, no LOSVD is supported
             model.redshift(losvd[0])
-        else:
+        elif broadening_type == 'LOSVD':
             # full LOSVD for sig>0 and LOG mode
             if model.wave_step == 0:
                 # resample to const, if necessary
@@ -104,6 +128,11 @@ class SpectrumComponent(Component):
             # apply losvd
             losvd = LOSVD(losvd)
             model.flux = losvd(model)
+        elif broadening_type == 'VSINI':
+            # initialize Vsini application
+            kernel = Vsini(losvd)
+            # apply it
+            model.flux = kernel(model)
 
 
 __all__ = ['SpectrumComponent']
