@@ -55,7 +55,7 @@ class Vsini:
 
 __all__ = ['Vsini']
 
-#
+
 # if __name__ == "__main__":
 #     import time
 #     import matplotlib.pyplot as plt
@@ -64,11 +64,11 @@ __all__ = ['Vsini']
 #
 #     fs = FitsSpectrum('/Users/ariskama/Downloads/lte11200-4.50-0.5.PHOENIX-ACES-AGSS-COND-2011-HiRes.fits')
 #     t0 = time.time()
-#     kernel = Vsini(params=[100., 200., 0.5])
+#     kernel = Vsini(params=[100., 200, 0.5])
 #     out = kernel(fs.spectrum)
 #     t1 = time.time()
 #
-#     losvd = LOSVD(params=[100., 100., 0., 0., 0.])
+#     losvd = LOSVD(params=[100., 100, 0., 0., 0.])
 #     alt = losvd(fs.spectrum)
 #     t2 = time.time()
 #     print(t1-t0, t2-t1)
