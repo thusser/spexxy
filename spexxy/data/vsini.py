@@ -62,19 +62,26 @@ __all__ = ['Vsini']
 #     from spexxy.data import FitsSpectrum
 #     from spexxy.data import LOSVD
 #
-#     fs = FitsSpectrum('/Users/ariskama/Downloads/lte11200-4.50-0.5.PHOENIX-ACES-AGSS-COND-2011-HiRes.fits')
+#     # fs = FitsSpectrum('/Users/ariskama/Downloads/lte11200-4.50-0.5.PHOENIX-ACES-AGSS-COND-2011-HiRes.fits')
+#     fs =  FitsSpectrum('/Users/ariskama/Downloads/lsfspec_teff8000_logg4.4_feh-0.35.fits')
 #     t0 = time.time()
-#     kernel = Vsini(params=[100., 200, 0.5])
-#     out = kernel(fs.spectrum)
+#
+#     kernel_fast = Vsini(params=[100., 200, 0.5], fast=True)
+#     fast = kernel_fast(fs.spectrum)
 #     t1 = time.time()
+#
+#     kernel_slow = Vsini(params=[100., 200, 0.5], fast=False)
+#     slow = kernel_slow(fs.spectrum)
+#     t2 = time.time()
 #
 #     losvd = LOSVD(params=[100., 100, 0., 0., 0.])
 #     alt = losvd(fs.spectrum)
-#     t2 = time.time()
-#     print(t1-t0, t2-t1)
+#     t3 = time.time()
+#     print(t1-t0, t2-t1, t3-t2)
 #
 #     fig, ax = plt.subplots()
 #     ax.plot(fs.spectrum.wave, fs.spectrum.flux, 'g-')
-#     ax.plot(fs.spectrum.wave, out, 'b-')
-#     ax.plot(fs.spectrum.wave, alt, r'--')
+#     ax.plot(fs.spectrum.wave, fast, 'b-')
+#     ax.plot(fs.spectrum.wave, slow, 'g:')
+#     ax.plot(fs.spectrum.wave, alt, 'r--')
 #     plt.show()

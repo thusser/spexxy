@@ -10,21 +10,20 @@ from ..object import create_object
 class Broadening(Enum):
     LOSVD = 1
     VSINI = 2
+    VSINI_FAST = 3
 
 
 class SpectrumComponent(Component):
     """SpectrumComponent is the base Component class for all components that deal with spectra."""
 
     def __init__(self, name: str, broadening_type: Broadening = Broadening.LOSVD, losvd_hermite: bool = False,
-                 fast_vsini: bool = True, vac_to_air: bool = False, lsf: Union[LSF, str, dict] = None,
-                 *args, **kwargs):
+                 vac_to_air: bool = False, lsf: Union[LSF, str, dict] = None, *args, **kwargs):
         """Initializes a new SpectrumComponent.
 
         Args:
             name: Name of new component
             broadening_type: Type of broadening (LOSVD, VSINI)
             losvd_hermite: Whether Hermite polynomials should be used for the LOSVD
-            fast_vsini: Whether to use the fast or the accurate Vsini routine from PyAstronomy
             vac_to_air: If True, vac_to_air() is called on spectra returned from the model_func
             lsf: LSF to apply to spectrum
         """
@@ -37,7 +36,6 @@ class SpectrumComponent(Component):
         else:
             self._broadening_type = broadening_type
         self._losvd_hermite = losvd_hermite
-        self._fast_vsini = fast_vsini
 
         # add losvd parameters
         self.set('v', min=-2000., max=2000., value=1.)
@@ -48,7 +46,7 @@ class SpectrumComponent(Component):
                 self.set('h4', min=-0.3, max=0.3, value=0.)
                 self.set('h5', min=-0.3, max=0.3, value=0.)
                 self.set('h6', min=-0.3, max=0.3, value=0.)
-        elif self._broadening_type == Broadening.VSINI:
+        elif self._broadening_type in [Broadening.VSINI, Broadening.VSINI_FAST]:
             self.set('vsini', min=0, max=800., value=20.)
             self.set('epsilon', min=0., max=1., value=0.5)
 
@@ -109,7 +107,7 @@ class SpectrumComponent(Component):
         return model
 
     @staticmethod
-    def _apply_losvd(model, losvd, broadening_type=Broadening.LOSVD, **kwargs):
+    def _apply_losvd(model, losvd, broadening_type=Broadening.LOSVD):
         """Apply LOSVD with the given parameters to the given model.
 
         WARNING: We will NOT FIT line broadening, if model spectra are in LAMBDA mode!
@@ -120,7 +118,6 @@ class SpectrumComponent(Component):
                    Gauss-Hermite (LOSVD): (v, sig, <h3, h4, h5, h6>)
                    Rotational (VSINI): (v, vsini, epsilon)
             broadening_type: Broadening method to use.
-            kwargs: Parameters used to initialize broadening class.
         """
         if losvd[1] < 1e-5 or model.wave_mode == Spectrum.Mode.LAMBDA:
             # in LAMBDA mode, no LOSVD is supported
@@ -133,8 +130,8 @@ class SpectrumComponent(Component):
             # apply losvd
             losvd = LOSVD(losvd)
             model.flux = losvd(model)
-        elif broadening_type == Broadening.VSINI:
-            fast = kwargs.pop('fast', True)
+        elif broadening_type in [Broadening.VSINI, Broadening.VSINI_FAST]:
+            fast = broadening_type == Broadening.VSINI_FAST
             # initialize Vsini application
             kernel = Vsini(losvd, fast=fast)
             # apply it
