@@ -54,9 +54,6 @@ class Vsini:
         kernel = profile.evaluate(vel)
         out = np.convolve(spec.flux, kernel, mode="same")
 
-        fig, ax = plt.subplots()
-        ax.plot(vel, kernel, 'gx')
-
         # return final spectrum
         if int_shift == 0:
             # make sure return value has no NaNs
