@@ -132,7 +132,7 @@ class SpectrumComponent(Component):
             elif broadening_type == Broadening.VSINI:
                 kernel = Vsini(losvd)
             # apply it
-            model.flux = losvd(model)
+            model.flux = kernel(model)
 
 
 __all__ = ['SpectrumComponent']
