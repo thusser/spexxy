@@ -10,7 +10,6 @@ from ..object import create_object
 class Broadening(Enum):
     LOSVD = 1
     VSINI = 2
-    VSINI_FAST = 3
 
 
 class SpectrumComponent(Component):
@@ -46,7 +45,7 @@ class SpectrumComponent(Component):
                 self.set('h4', min=-0.3, max=0.3, value=0.)
                 self.set('h5', min=-0.3, max=0.3, value=0.)
                 self.set('h6', min=-0.3, max=0.3, value=0.)
-        elif self._broadening_type in [Broadening.VSINI, Broadening.VSINI_FAST]:
+        elif self._broadening_type == Broadening.VSINI:
             self.set('vsini', min=0, max=800., value=20.)
             self.set('epsilon', min=0., max=1., value=0.5)
 
@@ -122,20 +121,18 @@ class SpectrumComponent(Component):
         if losvd[1] < 1e-5 or model.wave_mode == Spectrum.Mode.LAMBDA:
             # in LAMBDA mode, no LOSVD is supported
             model.redshift(losvd[0])
-        elif broadening_type == Broadening.LOSVD:
-            # full LOSVD for sig>0 and LOG mode
+        else:
+            # full LOSVD for sig/vsini>0 and LOG mode
             if model.wave_step == 0:
                 # resample to const, if necessary
                 model = model.resample_const()
-            # apply losvd
-            losvd = LOSVD(losvd)
-            model.flux = losvd(model)
-        elif broadening_type in [Broadening.VSINI, Broadening.VSINI_FAST]:
-            fast = broadening_type == Broadening.VSINI_FAST
-            # initialize Vsini application
-            kernel = Vsini(losvd, fast=fast)
+            # initialize LOSVD/Vsini application
+            if broadening_type == Broadening.LOSVD:
+                kernel = LOSVD(losvd)
+            elif broadening_type == Broadening.VSINI:
+                kernel = Vsini(losvd)
             # apply it
-            model.flux = kernel(model)
+            model.flux = losvd(model)
 
 
 __all__ = ['SpectrumComponent']

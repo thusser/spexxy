@@ -1,16 +1,15 @@
 import numpy as np
 from typing import Tuple
-from PyAstronomy import pyasl
+from PyAstronomy import modelSuite as ms
 
 from spexxy.data.spectrum import Spectrum
 
 
 class Vsini:
 
-    def __init__(self, params: Tuple, fast: bool = True):
+    def __init__(self, params: Tuple):
 
         self._vsini = list(params)
-        self._fast = fast
 
     def __call__(self, spec: Spectrum) -> np.ndarray:
         """Convolves a spectrum with the given Vsini kernel
@@ -21,36 +20,51 @@ class Vsini:
         Returns
             np.ndarray: Convolved spectrum
         """
-        # Problem is that Spexxy requires log-sampled templates when applying broadening kernel, while PyAstronomy
-        # currently only works with spectra regularly sampled in linear space.
-
         # spectrum in log mode?
         if spec.wave_mode != Spectrum.Mode.LOGLAMBDA:
             raise ValueError("Spectrum must be on log wavelength.")
 
-        # create copy of original spectrum for following operations
-        tmp = spec.copy()
+        # spectrum regularly sampled?
+        if spec.wave_step is None:
+            raise NotImplementedError
 
-        # apply velocity shift
-        tmp.redshift(vrad=self._vsini[0])
+        # get sampling in velocity space
+        delta_v = 299792.458 * spec.wave_step
 
-        # create regular sampling in linear space
-        tmp.mode(Spectrum.Mode.LAMBDA)
-        spec_lin = tmp.resample_const()
+        # The line-of sight velocity is split up into the nearest smaller value that corresponds to a shift
+        # by an interger number of pixels, and the remaining fractional pixel shift. The latter is applied
+        # when convolving with the Vsini kernel, while the former is applied by shifting the convolved
+        # spectrum by an integer number of pixels
+        int_shift = int(np.floor(self._vsini[0]/delta_v))  # no. of pixels by which convolved array needs to be shifted
+        frac_shift = np.mod(self._vsini[0], delta_v)  # velocity shift relative to previous pixel (>0)
 
-        # apply broadening
-        if self._fast:
-            func = pyasl.fastRotBroad
+        # set up broadening kernel
+        n_pix_kernel = 2*(self._vsini[1]//delta_v) + 1  # no. of pixels in kernel always odd
+        profile = ms.RotBroadProfile()
+        profile["xmax"] = self._vsini[1]
+        profile["A"] = delta_v  # so that profile is normalised to one
+        profile["eps"] = self._vsini[2]
+        profile["off"] = 0
+        profile["mu"] = frac_shift
+
+        # set up wavelength array of kernel, LOS velocity will be between pixels [n_pix_kernel//2, n_pix_kernel//2+1)
+        vel = delta_v*(np.arange(n_pix_kernel, dtype=np.float64) - n_pix_kernel//2)
+
+        # evaluate broadening kernel & apply to spectrum
+        kernel = profile.evaluate(vel)
+        out = np.convolve(spec.flux, kernel, mode="same")
+
+        fig, ax = plt.subplots()
+        ax.plot(vel, kernel, 'gx')
+
+        # return final spectrum
+        if int_shift == 0:
+            # make sure return value has no NaNs
+            return np.nan_to_num(out)
+        elif int_shift > 0:
+            return np.nan_to_num(np.pad(out, (int_shift, 0), mode="edge"))[:-int_shift]
         else:
-            func = pyasl.rotBroad
-        spec_lin.flux = func(spec_lin.wave, spec_lin.flux, epsilon=self._vsini[2], vsini=self._vsini[1])
-
-        # recover original sampling & return
-        spec_lin.mode(spec.wave_mode)
-        final = spec_lin.resample(spec=spec)
-
-        # make sure return value has no NaNs
-        return np.nan_to_num(final.flux)
+            return np.nan_to_num(np.pad(out, (0, -int_shift), mode="edge"))[-int_shift:]
 
 
 __all__ = ['Vsini']
@@ -62,26 +76,21 @@ __all__ = ['Vsini']
 #     from spexxy.data import FitsSpectrum
 #     from spexxy.data import LOSVD
 #
-#     # fs = FitsSpectrum('/Users/ariskama/Downloads/lte11200-4.50-0.5.PHOENIX-ACES-AGSS-COND-2011-HiRes.fits')
-#     fs =  FitsSpectrum('/Users/ariskama/Downloads/lsfspec_teff8000_logg4.4_feh-0.35.fits')
+#     fs = FitsSpectrum('/Users/ariskama/Downloads/lte11200-4.50-0.5.PHOENIX-ACES-AGSS-COND-2011-HiRes.fits')
+#     # fs =  FitsSpectrum('/Users/ariskama/Downloads/lsfspec_teff8000_logg4.4_feh-0.35.fits')
 #     t0 = time.time()
 #
-#     kernel_fast = Vsini(params=[100., 200, 0.5], fast=True)
-#     fast = kernel_fast(fs.spectrum)
+#     kernel = Vsini(params=[144., 200, 0.5])
+#     new = kernel(fs.spectrum)
 #     t1 = time.time()
 #
-#     kernel_slow = Vsini(params=[100., 200, 0.5], fast=False)
-#     slow = kernel_slow(fs.spectrum)
-#     t2 = time.time()
-#
-#     losvd = LOSVD(params=[100., 100, 0., 0., 0.])
+#     losvd = LOSVD(params=[144., 100, 0., 0., 0.])
 #     alt = losvd(fs.spectrum)
-#     t3 = time.time()
-#     print(t1-t0, t2-t1, t3-t2)
+#     t2 = time.time()
+#     print(t1-t0, t2-t1)
 #
 #     fig, ax = plt.subplots()
 #     ax.plot(fs.spectrum.wave, fs.spectrum.flux, 'g-')
-#     ax.plot(fs.spectrum.wave, fast, 'b-')
-#     ax.plot(fs.spectrum.wave, slow, 'g:')
+#     ax.plot(fs.spectrum.wave, new, 'm-.')
 #     ax.plot(fs.spectrum.wave, alt, 'r--')
 #     plt.show()
