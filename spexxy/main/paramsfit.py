@@ -326,8 +326,8 @@ class ParamsFit(FilesRoutine):
         # if any of the parameters was fitted close to their edge, fit failed
         if self._check_limits:
             for pn in result.params:
-                # ignore all sigma values
-                if pn.lower().find("sig") != -1 or pn.lower().find("tellurics") != -1:
+                # ignore all line broadening or tellurics values
+                if pn.lower().find("sig") != -1 or pn.lower().find("vsini") != -1 or pn.lower().find("tellurics") != -1:
                     continue
 
                 # get param

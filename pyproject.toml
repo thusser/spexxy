@@ -17,6 +17,7 @@ h5py = "^3.11.0"
 pyqt5 = "^5.15.10"
 single-source = "^0.4.0"
 scipy = "^1.13"
+pyastronomy = ">=0.21.0"
 
 [tool.poetry.dev-dependencies]
 
