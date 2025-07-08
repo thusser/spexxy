@@ -30,6 +30,8 @@ class Vsini:
 
         # get sampling in velocity space
         delta_v = 299792.458 * spec.wave_step
+        if spec.wave_mode == Spectrum.Mode.LOG10LAMBDA:
+            delta_v *= np.log(10)  # convert to natural log
 
         # The line-of sight velocity is split up into the nearest smaller value that corresponds to a shift
         # by an interger number of pixels, and the remaining fractional pixel shift. The latter is applied
