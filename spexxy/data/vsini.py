@@ -21,7 +21,7 @@ class Vsini:
             np.ndarray: Convolved spectrum
         """
         # spectrum in log mode?
-        if spec.wave_mode != Spectrum.Mode.LOGLAMBDA:
+        if spec.wave_mode not in [Spectrum.Mode.LOGLAMBDA, Spectrum.Mode.LOG10LAMBDA]:
             raise ValueError("Spectrum must be on log wavelength.")
 
         # spectrum regularly sampled?
