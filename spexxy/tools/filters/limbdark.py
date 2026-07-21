@@ -112,7 +112,7 @@ class ConvolveLimbDark:
         # intensities /= intensities[-1]
 
         # integrate I(mu)*mu
-        H = scipy.integrate.trapz(intensities * mu, mu)
+        H = scipy.integrate.trapezoid(intensities * mu, mu)
 
         # scale limb darkening as I(mu)/2H
         intensities /= 2 * H

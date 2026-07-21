@@ -26,14 +26,14 @@ class TestFilter(object):
         f = Filter('V', path=data_filename('filters'))
 
         # integrate it
-        int1 = np.trapz(f.throughput, f.wave)
+        int1 = np.trapezoid(f.throughput, f.wave)
 
         # load spectrum and resample filter
         s = Spectrum.load(data_filename('spectra/ngc6397id000010554jd2456865p5826f000.fits'))
         f.resample(spec=s, inplace=True)
 
         # integrate it again
-        int2 = np.trapz(f.throughput, f.wave)
+        int2 = np.trapezoid(f.throughput, f.wave)
 
         # integral should not have changed significantly
         assert abs(int1 - int2) < 1

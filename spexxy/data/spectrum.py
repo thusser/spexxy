@@ -689,7 +689,7 @@ class Spectrum(object):
         Returns:
             Factor the spectrum has been divided by.
         """
-        norm = scipy.integrate.trapz(self.flux, self.wave)
+        norm = scipy.integrate.trapezoid(self.flux, self.wave)
         self.flux /= norm
         return norm
 
