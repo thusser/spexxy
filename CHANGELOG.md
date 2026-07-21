@@ -1,5 +1,51 @@
 ## Changelog
 
+### v2.9.2
+* Switched packaging/dependency management from Poetry to uv.
+* Removed upper bound on supported Python version.
+* Bumped all dependencies to their latest versions still compatible with the supported Python range.
+* Replaced remaining uses of the removed scipy.integrate.trapz with trapezoid.
+
+### v2.9.1 (2024-10-11)
+* Fixed bug that prevented using initial, min, and max at the same time for a variable in a CSV.
+
+### v2.9.0 (2024-10-04)
+* CSV initializer can now set more than one column type.
+* Removed an unnecessary variable.
+
+### v2.8.2 (2024-07-09)
+* Reverted a change to spectrum resampling that caused issues.
+
+### v2.8.1 (2024-07-09)
+* Fixed error when resampling spectra with NaNs.
+* Fixed error conditions in Spectrum.index_of_wave().
+* Correctly handle log10-sampled spectra in Spectrum.redshift().
+* Keep valid array in Spectrum.extract_index().
+
+### v2.8.0 (2024-07-09)
+* Switched dependency management from requirements.txt to Poetry.
+* Updated dependencies and switched to Python 3.12.
+* Changed scipy.integrate.trapz to trapezoid.
+
+### v2.7.4 (2023-08-31)
+* Fixed bug in version detection.
+
+### v2.7.3 (2023-08-31)
+* Added single-source dependency for reading the package version from pyproject.toml.
+
+### v2.7.0 (2023-08-31)
+* Switched build system from setup.py to Poetry.
+* Added check_limits parameter.
+* CSV initializer can now handle min/max values.
+* Removed deprecated parameter papertype.
+* Added grid combine method.
+* Replaced deprecated np.bool with bool.
+* Added possibility for custom spectrum loader.
+* Added support for H5 files (SpectrumH5), including a filename property.
+* Handle case where extension has no wavelength info.
+* Use deepcopy in Spectrum.copy if copy_flux is True.
+* Test suite now uses Python 3.7.
+
 ### v2.6
 * Added new FitsGrid, which stores all spectra in a single FITS file.
 * Added convert methods for new grid.
