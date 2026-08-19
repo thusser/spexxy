@@ -1,6 +1,7 @@
 import lmfit
 import numpy as np
 import scipy.linalg
+import scipy.optimize
 from lmfit import Parameters
 from lmfit.minimizer import MinimizerResult
 from typing import List
@@ -107,7 +108,8 @@ class ParamsFit(FilesRoutine):
                  weights: List[Weight] = None, fixparams: List[str] = None, poly_degree: int = 40,
                  maxfev: int = 500, ftol: float = 1.49012e-08, xtol: float = 1.49012e-08,
                  factor: float = 100.0, epsfcn: float = 1e-7, min_valid_pixels: float = 0.5,
-                 plot_iterations: bool = False, check_limits: bool = True, *args, **kwargs):
+                 plot_iterations: bool = False, check_limits: bool = True,
+                 weight_convergence: str = 'full', *args, **kwargs):
         """Initialize a new ParamsFit object
 
         Args:
@@ -126,6 +128,12 @@ class ParamsFit(FilesRoutine):
             min_valid_pixels: Fraction of minimum number of required pixels to continue with fit.
             plot_iterations: Plot all iterations into a PDF file.
             check_limits: Whether to check if results are close to limits.
+            weight_convergence: For fits with more than one component, the weight of each component and the
+                multiplicative polynomial are bilinear and are fit by alternating between the two (see ULySS's
+                uly_fit_lin.pro, which has the same issue). 'full' alternates until they converge (like ULySS's
+                MODECVG=2: slower, but avoids a noisy/inconsistent objective function that can stall the outer
+                optimization). 'fast' does a single alternation per call (like ULySS's MODECVG=0: faster, but the
+                weights can occasionally be off). Ignored for single-component fits, which don't have this issue.
         """
         FilesRoutine.__init__(self, *args, **kwargs)
 
@@ -139,6 +147,9 @@ class ParamsFit(FilesRoutine):
         self._fixparams = fixparams
         self._min_valid_pixels = min_valid_pixels
         self._check_limits = check_limits
+        if weight_convergence not in ('fast', 'full'):
+            raise ValueError("weight_convergence must be 'fast' or 'full', got %r." % weight_convergence)
+        self._weight_convergence = weight_convergence
 
         # spectrum
         self._spec = None
@@ -563,18 +574,43 @@ class ParamsFit(FilesRoutine):
             a = models[0].flux[v] * self._mult_poly.values[v]
             b = self._spec.flux[v] * self._weight[v]
             self._cmps[0].weight = (a * b).sum() / (a * a).sum()
+
+            # add all models together weighted
+            model = models[0]
+            model.flux *= self._cmps[0].weight
+
+            # multiplicative poly
+            cont = self._mult_poly(model, self._valid)
+            cont_mean = self._mult_poly.mean
         else:
-            self._fit_component_weights(models)
+            # With more than one component, the weights and the multiplicative polynomial are bilinear (fitting
+            # one needs an estimate of the other), so a single pass isn't enough in general. Alternate between the
+            # two until they're consistent (see ULySS's uly_fit_lin.pro, which alternates for the same reason).
+            itermax = 500 if self._weight_convergence == 'full' else 1
+            tol = 5e-9
 
-        # add all models together weighted
-        model = models[0]
-        model.flux *= self._cmps[0].weight
-        for i in range(1, len(self._cmps)):
-            model.flux += models[i].flux * self._cmps[i].weight
+            model = None
+            for _ in range(itermax):
+                self._fit_component_weights(models)
 
-        # multiplicative poly
-        cont = self._mult_poly(model, self._valid)
-        cont_mean = self._mult_poly.mean
+                # add all models together weighted
+                model = models[0].copy()
+                model.flux = models[0].flux * self._cmps[0].weight
+                for i in range(1, len(self._cmps)):
+                    model.flux = model.flux + models[i].flux * self._cmps[i].weight
+                total_w = np.nansum(model.flux[self._valid])
+
+                # refit continuum against the updated combined model
+                self._mult_poly(model, self._valid)
+
+                # convergence test: how much did applying the freshly-fit polynomial
+                # change the total flux? (see uly_fit_lin.pro:572)
+                total_poly = np.nansum(model.flux[self._valid] * self._mult_poly.values[self._valid])
+                if total_w != 0 and abs(1.0 - total_poly / total_w) < tol:
+                    break
+
+            cont = self._mult_poly.values
+            cont_mean = self._mult_poly.mean
 
         # multiply weights with mean
         for c in self._cmps:
@@ -600,29 +636,38 @@ class ParamsFit(FilesRoutine):
     def _fit_component_weights(self, models: List[Spectrum]):
         """In case we got more than one model, we need to weight them.
 
+        Fits a bounded (non-negative), symmetrically error-weighted linear least squares problem, consistent with
+        the single-component branch above it (which includes self._mult_poly and self._weight) and with ULySS's
+        uly_fit_lin_weight, which is the reference implementation this mirrors: it applies sqrt(weight) to both
+        the design matrix and the target (proper weighted least squares, rather than only weighting the target),
+        and constrains weights to be non-negative (ULySS uses BVLS; component weight represents a physical flux
+        fraction, so it can't be negative in this model).
+
         Args:
             models: List of models.
         """
 
-        # get first model
-        m0 = models[0]
-
         # get valid points
-        valid = np.ones((len(m0)), dtype=bool)
+        valid = self._valid.copy()
         for m in models:
             valid &= ~np.isnan(m.flux)
 
-        # create matrix with models
-        mat = np.empty((len(m0[valid]), len(models)))
-        for k in range(len(models)):
-            mat[:, k] = models[k].flux[valid]
+        # symmetric error weighting: apply sqrt(weight) to both design matrix and target
+        sqrt_w = np.sqrt(self._weight[valid])
 
-        # fit
-        coeffs = scipy.linalg.lstsq(mat, self._spec.flux[valid])[0]
+        # create matrix with models, scaled by the current continuum estimate
+        mat = np.empty((valid.sum(), len(models)))
+        for k in range(len(models)):
+            mat[:, k] = models[k].flux[valid] * self._mult_poly.values[valid] * sqrt_w
+
+        spec_flux = self._spec.flux[valid] * sqrt_w
+
+        # fit, constrained to non-negative weights
+        result = scipy.optimize.lsq_linear(mat, spec_flux, bounds=(0, np.inf))
 
         # set weights
         for i, cmp in enumerate(self._cmps):
-            cmp.weight = coeffs[i]
+            cmp.weight = result.x[i]
 
     def _write_results_to_file(self, filename: str, result: MinimizerResult, best_fit: Spectrum, stats: dict):
         """Writes results of fit back to file.
