@@ -1,6 +1,6 @@
 [project]
 name = "spexxy"
-version = "2.9.2"
+version = "2.10.0"
 description = "spectrum fitting package"
 authors = [{ name = "Tim-Oliver Husser", email = "thusser@uni-goettingen.de" }]
 requires-python = ">=3.9"
