@@ -5,3 +5,4 @@ Parameter fits
    :maxdepth: 2
 
    config
+   weighting
