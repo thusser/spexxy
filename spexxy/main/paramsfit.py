@@ -134,6 +134,8 @@ class ParamsFit(FilesRoutine):
                 MODECVG=2: slower, but avoids a noisy/inconsistent objective function that can stall the outer
                 optimization). 'fast' does a single alternation per call (like ULySS's MODECVG=0: faster, but the
                 weights can occasionally be off). Ignored for single-component fits, which don't have this issue.
+                See :ref:`weighting` for details, including how convergence is measured and why the tolerance is
+                fixed at ``1e-4``.
         """
         FilesRoutine.__init__(self, *args, **kwargs)
 
@@ -587,9 +589,28 @@ class ParamsFit(FilesRoutine):
             # one needs an estimate of the other), so a single pass isn't enough in general. Alternate between the
             # two until they're consistent (see ULySS's uly_fit_lin.pro, which alternates for the same reason).
             itermax = 500 if self._weight_convergence == 'full' else 1
-            tol = 5e-9
+            # Relative tolerance on the change of the combined model (component weights * continuum
+            # polynomial) between successive alternations. Relative (not absolute) because the model
+            # scales with the spectrum's flux scale. We gate on the combined model rather than the
+            # raw weights because weights and polynomial are degenerate: flux can be redistributed
+            # between them without changing the fit, which would keep a weight-based test iterating
+            # long after the model itself has settled.
+            #
+            # The value is deliberately loose (1e-4, ~100x below typical data noise of ~1e-2 at SNR~100):
+            # the alternation converges linearly at a rate of ~0.98/iteration for near-degenerate
+            # components, so a tighter tolerance would chase sub-noise-level model changes at ~160
+            # iterations per model evaluation, while the fit residual is already at the noise floor
+            # after a handful. A better a-priori polynomial does not help (the convergence is
+            # rate-limited, not start-limited), so this tolerance -- not the seeding -- is the lever.
+            tol = 1e-4
+
+            # pixels valid in the spectrum and in every model (the models are fixed across the loop)
+            v = self._valid.copy()
+            for m in models:
+                v &= ~np.isnan(m.flux)
 
             model = None
+            prev_bestfit = None
             for _ in range(itermax):
                 self._fit_component_weights(models)
 
@@ -598,16 +619,20 @@ class ParamsFit(FilesRoutine):
                 model.flux = models[0].flux * self._cmps[0].weight
                 for i in range(1, len(self._cmps)):
                     model.flux = model.flux + models[i].flux * self._cmps[i].weight
-                total_w = np.nansum(model.flux[self._valid])
 
                 # refit continuum against the updated combined model
                 self._mult_poly(model, self._valid)
 
-                # convergence test: how much did applying the freshly-fit polynomial
-                # change the total flux? (see uly_fit_lin.pro:572)
-                total_poly = np.nansum(model.flux[self._valid] * self._mult_poly.values[self._valid])
-                if total_w != 0 and abs(1.0 - total_poly / total_w) < tol:
+                # convergence test: has the combined model stopped changing between alternations?
+                # (The previous test compared the total flux before/after applying the freshly-fit
+                # polynomial, which measured a fixed flux renormalization that never reaches ~0, so
+                # it always ran to the itermax cap instead of converging -- see #39.)
+                bestfit = model.flux[v] * self._mult_poly.values[v] * self._mult_poly.mean
+                scale = np.max(np.abs(bestfit))
+                if prev_bestfit is not None and scale > 0 and \
+                        np.max(np.abs(bestfit - prev_bestfit)) <= tol * scale:
                     break
+                prev_bestfit = bestfit
 
             cont = self._mult_poly.values
             cont_mean = self._mult_poly.mean

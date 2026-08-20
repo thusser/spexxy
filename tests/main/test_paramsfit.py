@@ -199,6 +199,47 @@ class TestParamsFitMultiComponentWeight:
         assert residuals['fast'] > 1e-3
         assert residuals['full'] < residuals['fast']
 
+    def test_full_convergence_terminates_before_cap(self):
+        """Regression guard for the convergence test: 'full' mode must actually converge
+        (stop alternating) rather than always run to the 500-iteration cap. Counts the
+        number of _fit_component_weights calls inside a single _get_model evaluation;
+        the alternation converges in well under 50 iterations here, so a value anywhere
+        near the 500 cap indicates the exit criterion has regressed.
+        """
+        wave = np.linspace(4500, 5500, 1500)
+        tmpl_wave = np.linspace(4400, 5600, 1800)
+        m1t = Spectrum(flux=_flux(tmpl_wave, 4800, 0.4, 15), wave=tmpl_wave.copy())
+        m2t = Spectrum(flux=_flux(tmpl_wave, 5200, 0.35, 20), wave=tmpl_wave.copy())
+
+        w1_true, w2_true = 1.4, 0.8
+        poly_true = 1.0 + 0.15 * np.sin((wave - 4500) / 300.0)
+        spec = Spectrum(
+            flux=poly_true * (w1_true * _flux(wave, 4800, 0.4, 15) + w2_true * _flux(wave, 5200, 0.35, 20)),
+            wave=wave.copy(),
+        )
+
+        pf = ParamsFit(poly_degree=5, weight_convergence='full')
+        cmp1, cmp2 = StarComponent(m1t, name="A"), StarComponent(m2t, name="B")
+        pf._cmps = [cmp1, cmp2]
+        pf._spec = spec
+        pf._valid = np.ones(len(wave), dtype=bool)
+        pf._weight = np.ones(len(wave))
+        pf._mult_poly = Legendre(spec, 5)  # unseeded, starts at all-ones
+
+        calls = []
+        orig = pf._fit_component_weights
+        def counting(models):
+            calls.append(1)
+            return orig(models)
+        pf._fit_component_weights = counting
+
+        params = Parameters()
+        params += cmp1.make_params()
+        params += cmp2.make_params()
+        pf._get_model(params)
+
+        assert 1 < len(calls) < 50
+
 
 class TestParamsFitNegativeWeights:
     """Characterizes weight non-negativity in _fit_component_weights.
