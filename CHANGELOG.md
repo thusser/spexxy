@@ -1,5 +1,11 @@
 ## Changelog
 
+### v2.12.0
+* Fixed error weighting in ParamsFit: the component weight (single and multiple components) and the printed chi2 now
+  use the same convention as the fit residual, i.e. they minimise sum((weight * residual)**2). Reported component
+  weights change when using e.g. WeightFromSigma.
+* WeightFromSigma: documented that squared=True minimises sum(r**2/sigma**4), which is rarely wanted.
+
 ### v2.9.2
 * Switched packaging/dependency management from Poetry to uv.
 * Removed upper bound on supported Python version.
