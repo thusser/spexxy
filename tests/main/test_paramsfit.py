@@ -62,20 +62,79 @@ class TestParamsFitSingleComponentWeight:
         assert cmp.weight == pytest.approx(w_true, rel=1e-3)
         assert model.flux == pytest.approx(spec.flux, abs=1e-3)
 
-    def test_uniform_nonunity_weight_scales_reported_weight_by_its_square(self):
-        """Known quirk of the existing formula (paramsfit.py:561-565): self._weight
-        is applied asymmetrically (only to the spectrum side, not the model side), so
-        a uniform pixel weight c biases the *reported* cmp.weight by c^2 -- even
-        though the returned model still matches the spectrum (the final continuum
-        renormalization step self-corrects the model shape, but not the reported
-        weight value). This is a separate, pre-existing issue from #39; pinned here
-        so it isn't silently changed by unrelated work.
+    def test_uniform_nonunity_weight_does_not_change_reported_weight(self):
+        """A uniform pixel weight c must not change the fitted scale factor: weighted least squares
+        with weight c everywhere has the same solution as the unweighted one. (Previously the weight
+        was applied only to the spectrum side and the result was biased by c.)
         """
-        c = 3.0
-        w_true, cmp, model, spec = self._setup(weight_value=c)
+        w_true, cmp, model, spec = self._setup(weight_value=3.0)
 
-        assert cmp.weight == pytest.approx(c ** 2 * w_true, rel=1e-3)
+        assert cmp.weight == pytest.approx(w_true, rel=1e-3)
         assert model.flux == pytest.approx(spec.flux, abs=1e-3)
+
+    def test_sigma_weight_recovers_scale_with_noise(self):
+        """With weight=1/sigma and heteroscedastic noise, the scale must be the weighted least squares
+        solution for the residual (model - flux) * weight, independent of the units of sigma."""
+        wave = np.linspace(4500, 5500, 1500)
+        tmpl_wave = np.linspace(4400, 5600, 1800)
+        template = Spectrum(flux=_flux(tmpl_wave, 4900, 0.4, 40), wave=tmpl_wave)
+        w_true = 2.7
+        sigma = 0.01 * (1 + 4 * ((wave - 4500) / 1000) ** 2)
+        rng = np.random.default_rng(42)
+        flux = w_true * _flux(wave, 4900, 0.4, 40) + rng.normal(0, sigma)
+
+        scales = []
+        for unit in (1.0, 100.0):
+            cmp = StarComponent(template, name="CMP")
+            spec = Spectrum(flux=flux.copy(), wave=wave.copy())
+            pf = ParamsFit(poly_degree=5)
+            pf._cmps = [cmp]
+            pf._spec = spec
+            pf._valid = np.ones(len(wave), dtype=bool)
+            pf._weight = 1. / (sigma * unit)
+            pf._mult_poly = Legendre(spec, 5)
+            pf._get_model(cmp.make_params())
+            scales.append(cmp.weight)
+
+        assert scales[0] == pytest.approx(w_true, rel=1e-2)
+        assert scales[1] == pytest.approx(scales[0], rel=1e-6)
+
+
+class TestParamsFitChi2:
+    def test_plot_spectrum_reports_weighted_chi2(self, monkeypatch):
+        """The chi2 shown in the iteration plot must be sum((residual * weight)**2), the quantity that is
+        actually minimized."""
+        from spexxy.main import paramsfit
+
+        captured = {}
+
+        def fake_plot(*args, **kwargs):
+            captured['text'] = kwargs['text']
+            return None
+
+        class FakePdf:
+            def savefig(self, fig):
+                pass
+
+        monkeypatch.setattr(paramsfit, 'plot_spectrum', fake_plot)
+        monkeypatch.setattr(paramsfit.plt, 'close', lambda *a, **k: None)
+
+        wave = np.linspace(4500, 5500, 100)
+        spec = Spectrum(flux=np.ones(100), wave=wave.copy())
+        model = Spectrum(flux=np.full(100, 1.5), wave=wave.copy())
+        pf = ParamsFit(poly_degree=5)
+        pf._cmps = []
+        pf._tellurics = None
+        pf._spec = spec
+        pf._model = model
+        pf._valid = np.ones(100, dtype=bool)
+        pf._weight = np.full(100, 4.0)
+        pf._iterations_pdf = FakePdf()
+
+        pf._plot_spectrum(Parameters(), 1)
+
+        # 100 * (0.5 * 4)**2 = 400
+        assert 'chi2 = 400' in captured['text']
 
 
 class TestParamsFitMultiComponentWeight:
@@ -151,6 +210,37 @@ class TestParamsFitMultiComponentWeight:
 
         assert cmp1.weight == pytest.approx(w1_true, rel=1e-6)
         assert cmp2.weight == pytest.approx(w2_true, rel=1e-6)
+
+    def test_recovers_weights_with_noisy_sigma_weighting(self, two_components):
+        """With weight=1/sigma and noise, the result must equal the explicit weighted least squares solution
+        of the residual (model - flux) * weight, and must not depend on the units of sigma."""
+        wave, m1, m2 = two_components
+        w1_true, w2_true = 1.4, 0.8
+        sigma = 0.01 * (1 + 4 * ((wave - 4500) / 1000) ** 2)
+        rng = np.random.default_rng(7)
+        flux = w1_true * m1.flux + w2_true * m2.flux + rng.normal(0, sigma)
+
+        # explicit weighted least squares: minimize sum(((flux - A x) / sigma)**2)
+        A = np.stack([m1.flux, m2.flux], axis=1) / sigma[:, None]
+        expected = np.linalg.lstsq(A, flux / sigma, rcond=None)[0]
+
+        results = []
+        for unit in (1.0, 100.0):
+            spec = Spectrum(flux=flux.copy(), wave=wave.copy())
+            pf = ParamsFit(poly_degree=5)
+            cmp1, cmp2 = StarComponent(m1, name="A"), StarComponent(m2, name="B")
+            pf._cmps = [cmp1, cmp2]
+            pf._spec = spec
+            pf._valid = np.ones(len(wave), dtype=bool)
+            pf._weight = 1. / (sigma * unit)
+            pf._mult_poly = Legendre(spec, 5)
+            pf._mult_poly.values = np.ones(len(wave))
+            pf._fit_component_weights([m1, m2])
+            results.append([cmp1.weight, cmp2.weight])
+
+        assert results[0] == pytest.approx(expected, rel=1e-6)
+        assert results[1] == pytest.approx(expected, rel=1e-6)
+
 
     def test_full_convergence_reaches_lower_residual_than_fast(self):
         """Exercises the alternation loop in _get_model (not just _fit_component_weights
@@ -303,3 +393,4 @@ class TestParamsFitNegativeWeights:
         # is the measured cost of the non-negativity constraint for this case
         assert chi2_unconstrained == pytest.approx(0.0, abs=1e-6)
         assert chi2_bounded > 1.0
+

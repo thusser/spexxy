@@ -479,8 +479,8 @@ class ParamsFit(FilesRoutine):
                 text += '%10s = %.2f\n' % (name, param.value)
 
         # calculate chi2
-        chi2 = np.sum(np.power(self._spec.flux[self._valid] - self._model.flux[self._valid], 2)
-                      * self._weight[self._valid])
+        chi2 = np.sum(np.power((self._spec.flux[self._valid] - self._model.flux[self._valid])
+                               * self._weight[self._valid], 2))
         text += '\nchi2 = %g\n' % chi2
 
         # do the plot
@@ -574,8 +574,9 @@ class ParamsFit(FilesRoutine):
             # if we only have one component, it's easy :-)
             #a = models[0].flux[v] * self._mult_poly[v]
             a = models[0].flux[v] * self._mult_poly.values[v]
-            b = self._spec.flux[v] * self._weight[v]
-            self._cmps[0].weight = (a * b).sum() / (a * a).sum()
+            # weighted linear least squares, consistent with the fit residual, which is (model - flux) * weight
+            w2 = self._weight[v] ** 2
+            self._cmps[0].weight = (w2 * a * self._spec.flux[v]).sum() / (w2 * a * a).sum()
 
             # add all models together weighted
             model = models[0]
@@ -663,8 +664,9 @@ class ParamsFit(FilesRoutine):
 
         Fits a bounded (non-negative), symmetrically error-weighted linear least squares problem, consistent with
         the single-component branch above it (which includes self._mult_poly and self._weight) and with ULySS's
-        uly_fit_lin_weight, which is the reference implementation this mirrors: it applies sqrt(weight) to both
-        the design matrix and the target (proper weighted least squares, rather than only weighting the target),
+        uly_fit_lin_weight, which is the reference implementation this mirrors: it divides both the design matrix and
+        the target by the error, i.e. multiplies both by weight=1/sigma, just like the fit residual does (proper
+        weighted least squares, rather than only weighting the target),
         and constrains weights to be non-negative (ULySS uses BVLS; component weight represents a physical flux
         fraction, so it can't be negative in this model).
 
@@ -677,15 +679,16 @@ class ParamsFit(FilesRoutine):
         for m in models:
             valid &= ~np.isnan(m.flux)
 
-        # symmetric error weighting: apply sqrt(weight) to both design matrix and target
-        sqrt_w = np.sqrt(self._weight[valid])
+        # symmetric error weighting: apply weight (=1/sigma) to both design matrix and target, which minimises
+        # sum((weight * residual)**2), the same quantity as the fit residual
+        wgt = self._weight[valid]
 
         # create matrix with models, scaled by the current continuum estimate
         mat = np.empty((valid.sum(), len(models)))
         for k in range(len(models)):
-            mat[:, k] = models[k].flux[valid] * self._mult_poly.values[valid] * sqrt_w
+            mat[:, k] = models[k].flux[valid] * self._mult_poly.values[valid] * wgt
 
-        spec_flux = self._spec.flux[valid] * sqrt_w
+        spec_flux = self._spec.flux[valid] * wgt
 
         # fit, constrained to non-negative weights
         result = scipy.optimize.lsq_linear(mat, spec_flux, bounds=(0, np.inf))

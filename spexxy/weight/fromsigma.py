@@ -17,7 +17,9 @@ class WeightFromSigma(Weight):
         """Initializes a new weight.
 
         Args:
-            squared: Return 1/SIGMA**2 instead of 1/SIGMA.
+            squared: Return 1/SIGMA**2 instead of 1/SIGMA. Note that weights are multiplied with the residuals
+                before squaring, so 1/SIGMA (the default) already gives the correct chi2 = sum((r/SIGMA)**2).
+                With squared=True, sum(r**2/SIGMA**4) is minimized instead, which is rarely what you want.
         """
         Weight.__init__(self, *args, **kwargs)
         self._squared = squared
